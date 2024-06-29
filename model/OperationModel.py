@@ -31,7 +31,7 @@ class OperationModel:
             limit=limitModel.selectLimit(query.value(3))
         )
 
-    def getAllOperations(self) -> List[Operation | None]:
+    def getAllOperations(self,limitModel) -> List[Operation | None]:
         query = QSqlQuery(self.db)
         query.prepare("SELECT Id FROM Operation")
 
@@ -42,7 +42,7 @@ class OperationModel:
         operations = []
         while query.next():
             operationId = query.value(0)
-            operation = self.selectOperation(operationId)
+            operation = self.selectOperation(operationId, limitModel)
             if operation:
                 operations.append(operation)
 

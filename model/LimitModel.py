@@ -50,6 +50,11 @@ class LimitModel:
 
     def insertLimit(self, limit: Limit) -> bool:
         query = QSqlQuery(self.db)
+        if limit.id == -1:
+            query.prepare("SELECT Max(Id)+1 FROM [Limit]")
+            query.next()
+            limit.id = query.value(0) or 1
+
         query.prepare("INSERT INTO [Limit] (Id) VALUES (?)")
         query.addBindValue(limit.id)
 

@@ -1,3 +1,6 @@
+import math
+from typing import Optional
+
 from PySide6.QtSql import QSqlTableModel, QSqlDatabase
 import logging
 
@@ -6,23 +9,65 @@ from consts.types import SeaData, OperationResult, Operation, LimitValue
 logger = logging.getLogger("logger")
 
 
-def getRelativeDir(waveDir, shipDir):
+def interpolateWavePeriod(smallerPeriodLimit: LimitValue, biggerPeriodLimit: LimitValue,
+                          wavePeriod: float) -> LimitValue:
+    if smallerPeriodLimit.wavePeriod == biggerPeriodLimit.wavePeriod:
+        return LimitValue(wavePeriod, smallerPeriodLimit.waveDir, smallerPeriodLimit.waveHeight)
+
+    proportion = ((wavePeriod - smallerPeriodLimit.wavePeriod) /
+                  (biggerPeriodLimit.wavePeriod - smallerPeriodLimit.wavePeriod))
+    interpolatedWaveHeight = (smallerPeriodLimit.waveHeight +
+                              proportion * (biggerPeriodLimit.waveHeight - smallerPeriodLimit.waveHeight))
+    waveDir = smallerPeriodLimit.waveDir
+
+    return LimitValue(wavePeriod, waveDir, interpolatedWaveHeight)
+
+
+def findClosestWaveDir(limitVals: list[LimitValue], relativeDir: float, wavePeriod: float) -> float:
+    closestLimit = min(limitVals, key=lambda lv: abs(lv.waveDir - relativeDir))
+    return closestLimit.waveDir
+
+
+def findWaveHeightLimit(limitVals: list[LimitValue], relativeDir: float, wavePeriod: float) -> float:
+    closestWaveDir = findClosestWaveDir(limitVals, relativeDir, wavePeriod)
+
+    waveDirLimits = [limitVal for limitVal in limitVals if limitVal.waveDir == closestWaveDir]
+    waveDirLimits.sort(key=lambda limitVal: limitVal.wavePeriod)
+    smallerPeriodLimit: Optional[LimitValue] = None
+    biggerPeriodLimit: Optional[LimitValue] = None
+    for limitVal in waveDirLimits:
+        if limitVal.wavePeriod <= wavePeriod:
+            smallerPeriodLimit = limitVal
+        if limitVal.wavePeriod >= wavePeriod and biggerPeriodLimit is None:
+            biggerPeriodLimit = limitVal
+            break
+    if smallerPeriodLimit is None or biggerPeriodLimit is None:
+        return -1
+
+    interpolatedLimit = interpolateWavePeriod(smallerPeriodLimit, biggerPeriodLimit, wavePeriod)
+    return interpolatedLimit.waveHeight
+
+
+def getRelativeDir(waveDir: float, shipDir: float):
     relativeDir = (waveDir - shipDir) % 360
     if relativeDir < 0:
         relativeDir += 360
     return relativeDir
 
 
-def findClosestWaveDir(limitVals: list[LimitValue], relativeDir: float, wavePeriod: int) -> LimitValue:
-    closestLimit = min(limitVals, key=lambda lv: abs(lv.waveDir - relativeDir) if lv.wavePeriod == wavePeriod else 1000)
-    return closestLimit
-
-
-def limitCheck(waveHeight, waveDir, shipDir, values, wavePeriod):
+def limitCheck(waveHeight: float, waveDir: float, wavePeriod: float, shipDir: float, limitVals: list[LimitValue]):
     relativeDir = getRelativeDir(waveDir, shipDir)
-    closestLimit = findClosestWaveDir(limitVals=values, relativeDir=relativeDir, wavePeriod=wavePeriod)
-    if closestLimit.waveHeight < waveHeight:
+    waveHeightLimit = findWaveHeightLimit(limitVals=limitVals, relativeDir=relativeDir, wavePeriod=wavePeriod)
+    if waveHeightLimit < waveHeight or waveHeightLimit == -1:
         return False
+    return True
+
+
+def successCheck(shipDir: float, limitVals: list[LimitValue], seaDataList: list[SeaData], operationType: str):
+    #TODO if operationType = continous/noncont...
+    for seaData in seaDataList:
+        if not limitCheck(seaData.waveHeight, seaData.waveDir, seaData.wavePeriod, shipDir, limitVals):
+            return False
     return True
 
 
@@ -71,14 +116,20 @@ class OperationResultModel(QSqlTableModel):
 
     def generateOperationResults(self, seaDataList: list[SeaData], operation: Operation):
         for seaData in seaDataList:
+            #TODO if operationType = continous/noncont...
+            timeSlotsReq = math.ceil(operation.timeReq // 3)
+            seaDataIndex = seaDataList.index(seaData)
+            seaDataTimeSlots: list[SeaData] = []
+            for timeSlot in range(timeSlotsReq):
+                seaDataTimeSlots.append(seaDataList[seaDataIndex + timeSlot])
+
             operationResult = OperationResult(
                 operationId=operation.id,
                 year=seaData.year,
                 month=seaData.month,
                 day=seaData.day,
                 hour=seaData.hour,
-                success=limitCheck(seaData.waveHeight, seaData.waveDir, operation.shipDir, operation.limit.values,
-                                   seaData.wavePeriod)
+                success=successCheck(operation.shipDir, operation.limit.values, seaDataTimeSlots, operation.type)
             )
             self.insertRowData(operationResult)
         return

@@ -1,4 +1,4 @@
-from PySide6.QtSql import QSqlTableModel, QSqlDatabase
+from PySide6.QtSql import QSqlTableModel, QSqlDatabase, QSqlQuery
 import logging
 
 from consts.types import SeaData
@@ -9,6 +9,7 @@ logger = logging.getLogger("logger")
 class SeaDataModel(QSqlTableModel):
     def __init__(self, parent=None, db=QSqlDatabase()):
         super(SeaDataModel, self).__init__(parent, db)
+        self.db = db
         self.setTable("Sea_Data")
         self.setEditStrategy(QSqlTableModel.OnManualSubmit)
         if not self.select():
@@ -30,10 +31,25 @@ class SeaDataModel(QSqlTableModel):
         return seaData
 
     def getAllRows(self) -> list[SeaData]:
-        rows = []
-        for row in range(self.rowCount()):
-            rows.append(self.selectRow(row))
-        return rows
+        query = QSqlQuery(self.db)
+        query.prepare("SELECT year, month, day, hour, wave_height, wave_dir, wave_period FROM Sea_Data")
+
+        if not query.exec():
+            logger.error(f"Query Error: {query.lastError().text()}")
+            return []
+
+        seaDataList = []
+        while query.next():
+            seaDataTmp = SeaData(year=query.value(0), month=query.value(1), day=query.value(2), hour=query.value(3),
+                                 waveHeight=query.value(4),wavePeriod=query.value(5), waveDir=query.value(6))
+            seaDataList.append(seaDataTmp)
+
+        return seaDataList
+
+        #rows = []
+        #for row in range(self.rowCount()):
+        #    rows.append(self.selectRow(row))
+        #return rows
 
     def insertRowData(self, seaData: SeaData) -> bool:
         row = self.rowCount()
