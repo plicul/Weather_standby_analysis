@@ -1,7 +1,7 @@
 from PySide6.QtSql import QSqlTableModel, QSqlDatabase, QSqlQuery
 import logging
 
-from consts.types import SeaData
+from consts.types import SeaData, SeaDataDate
 
 logger = logging.getLogger("logger")
 
@@ -66,3 +66,18 @@ class SeaDataModel(QSqlTableModel):
             return False
         logger.info("Row inserted successfully")
         return True
+
+    def getSeaDataDateRange(self) -> list[SeaDataDate]:
+        query = QSqlQuery(self.db)
+        query.prepare("SELECT year, month, day, hour FROM Sea_Data where Hour = 0")
+
+        if not query.exec():
+            logger.error(f"Query Error: {query.lastError().text()}")
+            return []
+
+        seaDataDateList = []
+        while query.next():
+            seaDataTmp = SeaDataDate(year=query.value(0), month=query.value(1), day=query.value(2), hour=query.value(3))
+            seaDataDateList.append(seaDataTmp)
+
+        return seaDataDateList

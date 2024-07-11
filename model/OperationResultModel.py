@@ -1,10 +1,11 @@
 import math
+from datetime import timedelta, datetime
 from typing import Optional
 
-from PySide6.QtSql import QSqlTableModel, QSqlDatabase
+from PySide6.QtSql import QSqlTableModel, QSqlDatabase, QSqlQuery
 import logging
 
-from consts.types import SeaData, OperationResult, Operation, LimitValue
+from consts.types import SeaData, OperationResult, Operation, LimitValue, SeaDataDate, CampaignOperation
 
 logger = logging.getLogger("logger")
 
@@ -64,7 +65,6 @@ def limitCheck(waveHeight: float, waveDir: float, wavePeriod: float, shipDir: fl
 
 
 def successCheck(shipDir: float, limitVals: list[LimitValue], seaDataList: list[SeaData], operationType: str):
-    #TODO if operationType = continous/noncont...
     for seaData in seaDataList:
         if not limitCheck(seaData.waveHeight, seaData.waveDir, seaData.wavePeriod, shipDir, limitVals):
             return False
@@ -116,7 +116,6 @@ class OperationResultModel(QSqlTableModel):
 
     def generateOperationResults(self, seaDataList: list[SeaData], operation: Operation):
         for seaData in seaDataList:
-            #TODO if operationType = continous/noncont...
             timeSlotsReq = math.ceil(operation.timeReq // 3)
             seaDataIndex = seaDataList.index(seaData)
             seaDataTimeSlots: list[SeaData] = []
@@ -133,3 +132,41 @@ class OperationResultModel(QSqlTableModel):
             )
             self.insertRowData(operationResult)
         return
+
+    def getFirstPassingDate(self, currentDate: SeaDataDate, operation: CampaignOperation):
+        query = QSqlQuery()
+        query.prepare("""
+                SELECT opRes.Year, opRes.Month, opRes.Day, opRes.Hour, opRes.Success, op.Time_Req
+                FROM Operation_Result as opRes left join operation op on opRes.operation_Id = op.Id 
+                WHERE opRes.operation_Id = :operationId
+                  AND (opRes.Year > :year 
+                       OR (opRes.Year = :year AND opRes.Month > :month)
+                       OR (opRes.Year = :year AND opRes.Month = :month AND opRes.Day > :day)
+                       OR (opRes.Year = :year AND opRes.Month = :month AND opRes.Day = :day AND opRes.Hour >= :hour))
+                  AND opRes.Success = 1
+                ORDER BY Year, Month, Day, Hour
+                LIMIT 1
+            """)
+        query.bindValue(":operationId", operation.operationId)
+        query.bindValue(":year", currentDate.year)
+        query.bindValue(":month", currentDate.month)
+        query.bindValue(":day", currentDate.day)
+        query.bindValue(":hour", currentDate.hour)
+
+        if query.exec():
+            if query.next():
+                year = query.value(0)
+                month = query.value(1)
+                day = query.value(2)
+                hour = query.value(3)
+                first_passing_date = datetime(year, month, day, hour)
+
+                end_date = first_passing_date + timedelta(hours=query.value(5) * 3)
+
+                return SeaDataDate(first_passing_date.year, first_passing_date.month, first_passing_date.day, first_passing_date.hour), SeaDataDate(end_date.year, end_date.month, end_date.day, end_date.hour)
+            else:
+                logger.error("No passing date found that meets the criteria.")
+                return None, None
+        else:
+            logger.error(f"Query Error: {query.lastError().text()}")
+            return None, None
