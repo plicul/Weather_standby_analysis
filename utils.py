@@ -1,6 +1,8 @@
+from datetime import datetime
+
 import pandas as pd
 
-from consts.types import LimitValue, Limit
+from consts.types import LimitValue, Limit, SeaDataDate
 from model.LimitModel import LimitModel
 
 
@@ -32,3 +34,13 @@ def importLimitFromExcel(limitModel: LimitModel):
     newLimit: Limit = Limit(-1, limitVals)
     limitModel.insertLimit(newLimit)
 
+
+def calcSeaDataDif(date1: SeaDataDate, date2: SeaDataDate):
+    dt1 = datetime(date1.year, date1.month, date1.day, date1.hour)
+    dt2 = datetime(date2.year, date2.month, date2.day, date2.hour)
+
+    dif = dt2 - dt1
+
+    hours_diff = dif.total_seconds() / 3600
+
+    return hours_diff/3

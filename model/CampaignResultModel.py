@@ -44,7 +44,7 @@ class CampaignResultModel:
     def getCampaignResultValuesForCampaignResult(self, campaignResultId) -> list[CampaignResultValue] | None:
         query = QSqlQuery(self.db)
         query.prepare(
-            "Select campaign_result_id, year, month, day, hour, operation_id, status from Campaign_Result_Value as cmpResVal where cmpResVal.campaign_result_id = :campaignResultId")
+            "Select cmpResVal.campaign_result_id, cmpResVal.year, cmpResVal.month, cmpResVal.day, cmpResVal.hour, cmpResVal.operation_id, cmpResVal.status, cmpResVal.campaign_operation_id, cmpOp.Relationship  from Campaign_Result_Value as cmpResVal left join main.Campaign_Operations cmpOp on cmpOp.id = cmpResVal.campaign_operation_id where cmpResVal.campaign_result_id = :campaignResultId")
         query.bindValue(":campaignResultId", campaignResultId)
 
         if not query.exec():
@@ -55,13 +55,15 @@ class CampaignResultModel:
 
         while query.next():
             cmpResultVal = CampaignResultValue(
-                campaign_result_id=query.value(0),
+                campaignResultId=query.value(0),
                 year=query.value(1),
                 month=query.value(2),
                 day=query.value(3),
                 hour=query.value(4),
                 operation_id=query.value(5),
                 status=query.value(6),
+                campaignOperationId= query.value(7),
+                relationship= query.value(8),
             )
             cmpResultVals.append(cmpResultVal)
 
@@ -69,12 +71,13 @@ class CampaignResultModel:
 
     def insertCampaignResultValues(self, campaignResultId, resultValues: List[CampaignResultValue]):
         query = QSqlQuery(self.db)
-        query.prepare(
-            "INSERT INTO Campaign_Result_Value(campaign_result_id, year, month, day, hour, operation_id, status) VALUES (?,?,?,?,?,?,?)")
 
-        self.db.transaction()  
+
+        self.db.transaction()
 
         for resultValue in resultValues:
+            query.prepare(
+                "INSERT INTO Campaign_Result_Value(campaign_result_id, year, month, day, hour, operation_id, status,campaign_operation_id) VALUES (?,?,?,?,?,?,?,?)")
             query.addBindValue(campaignResultId)
             query.addBindValue(resultValue.year)
             query.addBindValue(resultValue.month)
@@ -82,8 +85,10 @@ class CampaignResultModel:
             query.addBindValue(resultValue.hour)
             query.addBindValue(resultValue.operation_id)
             query.addBindValue(resultValue.status)
+            query.addBindValue(resultValue.campaignOperationId)
 
             if not query.exec():
+                x= query.lastError().text()
                 logger.error(f"Insert Error (CampaignResultValue): {query.lastError().text()}")
                 self.db.rollback()  # Rollback transaction on error
                 return False

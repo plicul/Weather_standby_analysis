@@ -7,33 +7,33 @@ from model.OperationResultModel import OperationResultModel
 from collections import deque
 
 
-def generateCampaignResultValuesUntilFromTo(currentDate, firstPassingDate, endDate, operationId):
+def generateCampaignResultValuesUntilFromTo(currentDate, firstPassingDate, endDate, operationId, campaignOperationId):
     result_values = []
     temp_date = currentDate
     while temp_date < firstPassingDate:
         result_values.append(
             CampaignResultValue(None, temp_date.year, temp_date.month, temp_date.day, temp_date.hour, operationId,
-                                'wait'))
+                                'wait', campaignOperationId,None))
         temp_date += timedelta(hours=3)
 
     result_values.append(CampaignResultValue(None, firstPassingDate.year, firstPassingDate.month, firstPassingDate.day,
-                                             firstPassingDate.hour, operationId, 'start'))
+                                             firstPassingDate.hour, operationId, 'start', campaignOperationId,None))
 
     temp_date = firstPassingDate + timedelta(hours=3)
     while temp_date < endDate:
         result_values.append(
             CampaignResultValue(None, temp_date.year, temp_date.month, temp_date.day, temp_date.hour, operationId,
-                                'work'))
+                                'work', campaignOperationId,None))
         temp_date += timedelta(hours=3)
 
     result_values.append(
-        CampaignResultValue(None, endDate.year, endDate.month, endDate.day, endDate.hour, operationId, 'finish'))
+        CampaignResultValue(None, endDate.year, endDate.month, endDate.day, endDate.hour, operationId, 'finish', campaignOperationId,None))
 
     return result_values
 
 
 def checkNextOperation(nextOperation, firstPassingDate, endDate, operationResultModel):
-    """
+
     if nextOperation.relation == "F-S_NF":
         nextOpFirstPassingDate, endDateNew = operationResultModel.getFirstPassingDate(endDate, nextOperation)
         return endDate <= nextOpFirstPassingDate
@@ -47,12 +47,12 @@ def checkNextOperation(nextOperation, firstPassingDate, endDate, operationResult
         nextOpFirstPassingDate, endDateNew = operationResultModel.getFirstPassingDate(firstPassingDate, nextOperation)
         return firstPassingDate == nextOpFirstPassingDate
     return False
-    """
-    nextOpFirstPassingDate, _ = operationResultModel.getFirstPassingDate(endDate,
-                                                                         nextOperation) if nextOperation.relation in [
-        "F-S_NF", "F-S_F"] else operationResultModel.getFirstPassingDate(firstPassingDate, nextOperation)
-    return endDate <= nextOpFirstPassingDate if nextOperation.relation in ["F-S_NF",
-                                                                           "F-S_F"] else firstPassingDate <= nextOpFirstPassingDate
+
+    #nextOpFirstPassingDate, _ = operationResultModel.getFirstPassingDate(endDate,
+    #                                                                     nextOperation) if nextOperation.relation in [
+    #    "F-S_NF", "F-S_F"] else operationResultModel.getFirstPassingDate(firstPassingDate, nextOperation)
+    #return endDate <= nextOpFirstPassingDate if nextOperation.relation in ["F-S_NF",
+    #                                                                       "F-S_F"] else firstPassingDate <= nextOpFirstPassingDate
 
 
 def getLastEndDate(cmpResultVals):
@@ -93,8 +93,6 @@ def getTotalWork(cmpResultVals):
 
 def generateCampaignResultValues(campaignId, operations, date: SeaDataDate,
                                  operationResultModel: OperationResultModel) -> CampaignResult:
-    #TODO probaj izvrsit campaign u najmanje vremena postivajuc pravila meduzavisnosti
-
     operationsStack: list[CampaignOperation] = operations.copy()
     processedOperations: list[CampaignOperation] = []
 
@@ -114,22 +112,13 @@ def generateCampaignResultValues(campaignId, operations, date: SeaDataDate,
 
         firstPassingDate, endDate = operationResultModel.getFirstPassingDate(currentDate, operation)
 
-        # kreiraj listu za CampaignResultValue instance za sve datume do first passing date, stavi ih u wait
-        # first passing date stavi u start
-        # sve do end date stavi u work
-        # end date u finish
         cmpResultValsTemp: list[CampaignResultValue] = generateCampaignResultValuesUntilFromTo(currentDate,
                                                                                                firstPassingDate,
                                                                                                endDate,
-                                                                                               operation.operationId)
-        # if checkNextOp saljemo sljedeci operation, tamo se onda provjerava ovisno o sljedu
-        # ako je rel = mora poceti kada zavrsi -> je li start date te operacije = end date trenutne op
-        # ako je rel = mora poceti istovremeno -> je li start date te op = start date trenutne op
-        # ako je rel = moze poceti istovremeno -> trazimo start date koji je >= trenutnom dateu
-        # U SVAKOM SLUCAJU AKO NE USPIJEMO NACI -> KRECEMO ISPOCETKA BRISEMO SVE SAMO POMICEMO START DATE
-        # inace nastavi
-        # save liste na nacin da se doda u cmpResultVals
-        if not nextOperation  or checkNextOperation(nextOperation, firstPassingDate, endDate, operationResultModel):
+                                                                                               operation.operationId,
+                                                                                               operation.id)
+
+        if not nextOperation or checkNextOperation(nextOperation, firstPassingDate, endDate, operationResultModel):
             cmpResultVals.extend(cmpResultValsTemp)
             # ovisno o tipu relationship sljedeceg current date je ili start ili end date
             if nextOperation is None:
@@ -177,10 +166,9 @@ def generateCampaignResultValues(campaignId, operations, date: SeaDataDate,
             operation = None
             nextOperation = None
         """
-
-        return CampaignResult(id=None, campaign_id=campaignId, year=date.year, month=date.month, day=date.day,
-                              hour=date.hour, resultValues=cmpResultVals, success=True,
-                              total_wait=getTotalWait(cmpResultVals), total_work=getTotalWork(cmpResultVals))
+    return CampaignResult(id=None, campaign_id=campaignId, year=date.year, month=date.month, day=date.day,
+                          hour=date.hour, resultValues=cmpResultVals, success=True,
+                          total_wait=getTotalWait(cmpResultVals), total_work=getTotalWork(cmpResultVals))
 
 
 def simulateCampaign(campaign: Campaign, dates: list[SeaDataDate], campaignResultModel: CampaignResultModel,

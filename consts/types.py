@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Optional
 
 
 @dataclass
@@ -87,6 +88,7 @@ class OperationResult:
 @dataclass
 class CampaignOperation:
     #operation: Operation
+    id: int
     operationId: int
     order: int
     relation: str
@@ -100,13 +102,15 @@ class Campaign:
 
 @dataclass
 class CampaignResultValue:
-    campaing_result_id: int
+    campaignResultId: int
     year: int
     month: int
     day: int
     hour: int
     operation_id: int
     status: str
+    campaignOperationId: int
+    relationship: Optional[str]
 
 
 @dataclass

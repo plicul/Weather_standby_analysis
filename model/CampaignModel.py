@@ -14,7 +14,7 @@ class CampaignModel:
 
     def getCampaign(self, campaignId) -> Campaign | None:
         query = QSqlQuery(self.db)
-        query.prepare("SELECT cmp.Id, cmp_op.Operation_Id, cmp_op.Relationship, cmp_op.[order] FROM Campaign as cmp "
+        query.prepare("SELECT cmp.Id, cmp_op.Operation_Id, cmp_op.Relationship, cmp_op.[order], cmp_op.id FROM Campaign as cmp "
                       "left join Campaign_Operations as cmp_op on cmp.Id = cmp_op.Campaign_Id left join Operation as op on cmp_op.Operation_Id = op.Id where cmp.Id = :campaignId")
         query.bindValue(":campaignId", campaignId)
 
@@ -28,7 +28,8 @@ class CampaignModel:
             cmpOperationTmp = CampaignOperation(
                 operationId=query.value(1),
                 order=query.value(3),
-                relation=query.value(2)
+                relation=query.value(2),
+                id=query.value(4)
             )
             cmpOperations.append(cmpOperationTmp)
         cmpOperations.sort(key=lambda cmpOperation: cmpOperation.order, reverse=True)

@@ -17,7 +17,7 @@ class MainWindow(QMainWindow):
         self.widget_dict = {}
 
         for widget in widgets:
-            widget_name = type(widget).__name__
+            widget_name = widget.name
             self.stacked_widget.addWidget(widget)
             self.widget_dict[widget_name] = widget
 
@@ -27,7 +27,7 @@ class MainWindow(QMainWindow):
 
         # Menu
         self.menu = self.menuBar()
-        self.file_menu = self.menu.addMenu("Pages")
+        self.file_menu = self.menu.addMenu("Menu")
 
         # Exit QAction
         exit_action = QAction("Exit", self)

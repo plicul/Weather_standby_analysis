@@ -19,15 +19,20 @@ class MyWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
-        self.button = QtWidgets.QPushButton("Click me!")
+        self.button = QtWidgets.QPushButton("Campaigns!")
+        self.button2 = QtWidgets.QPushButton("Operations!")
         self.text = QtWidgets.QLabel("",
                                      alignment=QtCore.Qt.AlignCenter)
+
+        self.name = "Simulation Functions"
 
         self.layout = QtWidgets.QVBoxLayout(self)
         self.layout.addWidget(self.text)
         self.layout.addWidget(self.button)
+        self.layout.addWidget(self.button2)
 
-        self.button.clicked.connect(self.magic)
+        self.button.clicked.connect(self.simulateCampaigns)
+        self.button2.clicked.connect(self.generateOperationResults)
 
         self.seaDataModel = SeaDataModel()
         self.operationModel = OperationModel()
@@ -37,7 +42,7 @@ class MyWidget(QtWidgets.QWidget):
         self.campaignResultModel = CampaignResultModel()
 
     @QtCore.Slot()
-    def magic(self):
+    def simulateCampaigns(self):
         #importLimitFromExcel(self.model2)
 
         #operationList: list[Operation] = self.operationModel.getAllOperations(self.limitModel)
@@ -65,3 +70,16 @@ class MyWidget(QtWidgets.QWidget):
             self.text.setText("Campaign simulation completed successfully!")
         else:
             self.text.setText("Campaign simulation failed.")
+
+    @QtCore.Slot()
+    def generateOperationResults(self):
+        #importLimitFromExcel(self.model2)
+
+        operationList: list[Operation] = self.operationModel.getAllOperations(self.limitModel)
+        for operation in operationList:
+            try:
+                self.operationResultModel.generateOperationResults(self.seaDataModel.getAllRows(), operation)
+            except Exception as e:
+                logger.error(f"Error Generating Operation Results: {e}")
+                print(e)
+
