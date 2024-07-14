@@ -75,11 +75,12 @@ def getLastStartDate(cmpResultVals):
                        start_dates[-1].hour) if start_dates else None
 
 
-def nextDate(date):
+def nextDate(date, timesInRecoveryLoop):
     #dt = datetime(date.year, date.month, date.day, date.hour)
     #next_dt = dt + timedelta(hours=3)
     #return SeaDataDate(next_dt.year, next_dt.month, next_dt.day, next_dt.hour)
     next_dt = datetime(date.year, date.month, date.day, date.hour) + timedelta(hours=3)
+    next_dt += timedelta(hours=3 * timesInRecoveryLoop)
     return SeaDataDate(next_dt.year, next_dt.month, next_dt.day, next_dt.hour)
 
 
@@ -102,6 +103,7 @@ def generateCampaignResultValues(campaignId, operations, date: SeaDataDate,
 
     operation = None
     nextOperation = None
+    timesInRecoveryLoop = 0
     while operationsStack:
         operation = operationsStack.pop()
         #if len(operationsStack) > 0:
@@ -119,6 +121,17 @@ def generateCampaignResultValues(campaignId, operations, date: SeaDataDate,
                                                                                                operation.id)
 
         if not nextOperation or checkNextOperation(nextOperation, firstPassingDate, endDate, operationResultModel):
+            if timesInRecoveryLoop > 0:
+                recoveryResultVals = []
+                temp_date = SeaDataDate(cmpResultVals[-1].year, cmpResultVals[-1].month, cmpResultVals[-1].day, cmpResultVals[-1].hour)
+                for i in range(timesInRecoveryLoop):
+                    #temp_date = nextDate(temp_date, 0)
+                    recoveryResultVals.append(
+                        CampaignResultValue(None, temp_date.year, temp_date.month, temp_date.day, temp_date.hour, operation.operationId,
+                                            'wait', operation.id,None))
+                    temp_date += timedelta(hours=3)
+                cmpResultVals.extend(recoveryResultVals)
+                timesInRecoveryLoop = 0
             cmpResultVals.extend(cmpResultValsTemp)
             # ovisno o tipu relationship sljedeceg current date je ili start ili end date
             if nextOperation is None:
@@ -127,21 +140,26 @@ def generateCampaignResultValues(campaignId, operations, date: SeaDataDate,
                 currentDate = endDate
             else:
                 currentDate = firstPassingDate
+
         else:
-            while processedOperations and not (processedOperations[-1].relation in ["F-S_NF", "S-S_NF"]):
+            lastPop = processedOperations.pop()
+            cmpResultVals = [val for val in cmpResultVals if val.operation_id != lastPop.operationId]
+            operationsStack.append(lastPop)
+            while processedOperations and not (processedOperations[-1].relation in ["F-S_NF", "S-S_NF", ""]):
                 lastPop = processedOperations.pop()
                 cmpResultVals = [val for val in cmpResultVals if val.operation_id != lastPop.operationId]
                 operationsStack.append(lastPop)
 
             if cmpResultVals:
-                lastOp = processedOperations[-1] if processedOperations else None
+                lastOp = operationsStack[-1] if processedOperations else None
                 if lastOp and lastOp.relation in ["F-S_NF", "F-S_F"]:
-                    currentDate = nextDate(getLastEndDate(cmpResultVals))
+                    currentDate = nextDate(getLastEndDate(cmpResultVals), timesInRecoveryLoop)
                 else:
-                    currentDate = nextDate(getLastStartDate(cmpResultVals))
+                    currentDate = nextDate(getLastStartDate(cmpResultVals), timesInRecoveryLoop)
             else:
-                currentDate = nextDate(originalDate)
+                currentDate = nextDate(originalDate, timesInRecoveryLoop)
                 originalDate = currentDate
+            timesInRecoveryLoop += 1
         """
         else:
             # operationsStack = generateOperationsQueue(operations)
@@ -175,11 +193,16 @@ def simulateCampaign(campaign: Campaign, dates: list[SeaDataDate], campaignResul
                      operationResultModel: OperationResultModel) -> bool:
     try:
         a = 0
-        for date in dates:
-            a += 1
-            cmpRes: CampaignResult = generateCampaignResultValues(campaign.id, campaign.operations, date,
-                                                                  operationResultModel)
-            campaignResultModel.insertCampaignResult(cmpRes)
+        cmpResults: list[CampaignResult] = []
+        try:
+            for date in dates:
+                a += 1
+                cmpRes: CampaignResult = generateCampaignResultValues(campaign.id, campaign.operations, date,
+                                                                      operationResultModel)
+                cmpResults.append(cmpRes)
+        except Exception as e:
+            pass
+        campaignResultModel.insertCampaignResults(cmpResults)
         return True
     except Exception as e:
         return False

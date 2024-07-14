@@ -62,8 +62,8 @@ class CampaignResultModel:
                 hour=query.value(4),
                 operation_id=query.value(5),
                 status=query.value(6),
-                campaignOperationId= query.value(7),
-                relationship= query.value(8),
+                campaignOperationId=query.value(7),
+                relationship=query.value(8),
             )
             cmpResultVals.append(cmpResultVal)
 
@@ -71,7 +71,6 @@ class CampaignResultModel:
 
     def insertCampaignResultValues(self, campaignResultId, resultValues: List[CampaignResultValue]):
         query = QSqlQuery(self.db)
-
 
         self.db.transaction()
 
@@ -88,7 +87,7 @@ class CampaignResultModel:
             query.addBindValue(resultValue.campaignOperationId)
 
             if not query.exec():
-                x= query.lastError().text()
+                x = query.lastError().text()
                 logger.error(f"Insert Error (CampaignResultValue): {query.lastError().text()}")
                 self.db.rollback()  # Rollback transaction on error
                 return False
@@ -99,50 +98,74 @@ class CampaignResultModel:
         return True
 
     # We always get a full Campaign Result object here
-    def insertCampaignResult(self, campaignResult: CampaignResult) -> bool:
+    def insertCampaignResults(self, campaignResults: list[CampaignResult]) -> bool:
         query = QSqlQuery(self.db)
-        query.prepare(
-            "INSERT INTO Campaign_Result(campaign_id, year, month, day, hour, total_wait, total_work, success) VALUES (?,?,?,?,?,?,?,?)")
-        query.addBindValue(campaignResult.campaign_id)
-        query.addBindValue(campaignResult.year)
-        query.addBindValue(campaignResult.month)
-        query.addBindValue(campaignResult.day)
-        query.addBindValue(campaignResult.hour)
-        query.addBindValue(campaignResult.total_wait)
-        query.addBindValue(campaignResult.total_work)
-        query.addBindValue(1 if campaignResult.success else 0)
+        self.db.transaction()
+        for campaignResult in campaignResults:
+            query.prepare(
+                "INSERT INTO Campaign_Result(campaign_id, year, month, day, hour, total_wait, total_work, success) VALUES (?,?,?,?,?,?,?,?)")
+            query.addBindValue(campaignResult.campaign_id)
+            query.addBindValue(campaignResult.year)
+            query.addBindValue(campaignResult.month)
+            query.addBindValue(campaignResult.day)
+            query.addBindValue(campaignResult.hour)
+            query.addBindValue(campaignResult.total_wait)
+            query.addBindValue(campaignResult.total_work)
+            query.addBindValue(1 if campaignResult.success else 0)
+            if not query.exec():
+                logger.error(f"Insert Error (CampaignResult): {query.lastError().text()}")
+                return False
+            query.clear()
+            query.prepare("Select max(id) from Campaign_Result")
+            query.exec()
+            query.next()
+            campaignResultId = query.value(0)
 
-        if not query.exec():
-            logger.error(f"Insert Error (CampaignResult): {query.lastError().text()}")
-            return False
+            if not self.insertCampaignResultValues(campaignResultId, campaignResult.resultValues):
+                return False
 
-        #query.clear()
-        query.prepare("Select max(id) from Campaign_Result")
-        query.exec()
-        query.next()
-        campaignResultId = query.value(0)
-        query.clear()
-
-        if not self.insertCampaignResultValues(campaignResultId, campaignResult.resultValues):
-            return False
+        self.db.commit()
 
         return True
 
+    def getAllCampaignResults(self):
+        query = QSqlQuery(self.db)
+        query.prepare(
+            "Select cmpRes.id, cmpRes.campaign_id, cmpRes.year, cmpRes.month, cmpRes.day, cmpRes.hour from Campaign_Result as cmpRes")  # left join main.Campaign C on C.Id = cmpRes.campaign_id")
+        query.exec()
+        cmpResList: list[CampaignResult] = []
+        while query.next():
+            cmpResList.append(CampaignResult(id=query.value(0), campaign_id=query.value(1), resultValues=None,
+                                             year=query.value(2), month=query.value(3), day=query.value(4),
+                                             hour=query.value(5),
+                                             total_wait=None, total_work=None, success=None))
+        return cmpResList
 
-'''
- def insertCampaignResultValue(self, campaignResultId, resultValue):
-     query = QSqlQuery(self.db)
-     query.prepare("INSERT INTO Campaign_Result_Value(campaign_result_id, year, month, day, hour, operation_id, status) VALUES (?,?,?,?,?,?,?)")
-     query.addBindValue(campaignResultId)
-     query.addBindValue(resultValue.year)
-     query.addBindValue(resultValue.month)
-     query.addBindValue(resultValue.day)
-     query.addBindValue(resultValue.hour)
-     query.addBindValue(resultValue.operation_id)
-     query.addBindValue(resultValue.status)
+    # TODO
+    def getTotalWaitTotalWork(self, campaignResultId):
+        query = QSqlQuery(self.db)
+        query.prepare(
+            "Select cmpResVal.campaign_result_id, cmpResVal.year, cmpResVal.month, cmpResVal.day, cmpResVal.hour, cmpResVal.operation_id, cmpResVal.status, cmpResVal.campaign_operation_id, cmpOp.Relationship  from Campaign_Result_Value as cmpResVal left join main.Campaign_Operations cmpOp on cmpOp.id = cmpResVal.campaign_operation_id where cmpResVal.campaign_result_id = :campaignResultId")
+        query.bindValue(":campaignResultId", campaignResultId)
 
-     if not query.exec():
-         a = query.lastError().text()
-         logger.error(f"Insert Error (CampaignResultValue): {query.lastError().text()}")
-         return False
- '''
+        if not query.exec():
+            logger.error(f"Query Error: {query.lastError().text()}")
+            return None
+
+        cmpResultVals: list[CampaignResultValue] = []
+
+        while query.next():
+            cmpResultVal = CampaignResultValue(
+                campaignResultId=query.value(0),
+                year=query.value(1),
+                month=query.value(2),
+                day=query.value(3),
+                hour=query.value(4),
+                operation_id=query.value(5),
+                status=query.value(6),
+                campaignOperationId=query.value(7),
+                relationship=query.value(8),
+            )
+            cmpResultVals.append(cmpResultVal)
+
+        return cmpResultVals

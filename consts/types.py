@@ -121,7 +121,7 @@ class CampaignResult:
     month: int
     day: int
     hour: int
-    total_wait: float
-    total_work: float
-    success: bool
+    total_wait: float | None
+    total_work: float | None
+    success: bool | None
     resultValues: list[CampaignResultValue] | None

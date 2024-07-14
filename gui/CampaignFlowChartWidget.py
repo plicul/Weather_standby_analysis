@@ -1,14 +1,16 @@
 from collections import defaultdict
 from operator import itemgetter
 
+from PySide6 import QtCore
 from PySide6.QtCharts import QChart, QChartView, QLineSeries, QDateTimeAxis, QValueAxis, QBarSeries, QBarSet, \
     QCategoryAxis, QHorizontalStackedBarSeries, QBarCategoryAxis
 from PySide6.QtCore import QDateTime, Qt, QDate, QTime, QRectF
 from PySide6.QtGui import QPainter, QBrush, QColor, QCursor
 from PySide6.QtWidgets import (QHBoxLayout, QHeaderView, QSizePolicy,
-                               QTableView, QWidget, QGraphicsRectItem, QGraphicsScene, QToolTip)
+                               QTableView, QWidget, QGraphicsRectItem, QGraphicsScene, QToolTip, QComboBox, QVBoxLayout,
+                               QLabel)
 
-from consts.types import CampaignResultValue, SeaDataDate
+from consts.types import CampaignResultValue, SeaDataDate, CampaignResult
 from model.CampaignResultModel import CampaignResultModel
 from model.SeaDataModel import SeaDataModel
 from utils import calcSeaDataDif
@@ -19,37 +21,19 @@ class CampaignFlowChartWidget(QWidget):
         super().__init__()
 
         self.model = CampaignResultModel()
-        self.data = self.model.getCampaignResultValuesForCampaignResult(78239)
         self.name = "Campaign Flow Chart"
-
-        self.operationList = []
-        self.grouped_data = defaultdict(list)
-        cmpStartDate: SeaDataDate = SeaDataDate(self.data[0].year, self.data[0].month, self.data[0].day, self.data[0].hour)
-        currentOp = self.data[0].campaignOperationId
-        for item in self.data:
-            if item.campaignOperationId != currentOp:
-                currentOp=item.campaignOperationId
-                if not self.grouped_data[int(self.operationList[-1]), "wait"]:
-                    self.grouped_data[int(self.operationList[-1]), "wait"].append(0)
-                if not self.grouped_data[int(self.operationList[-1]), "prevOp"]:
-                    self.grouped_data[int(self.operationList[-1]), "prevOp"].append(0)
-                self.grouped_data[item.campaignOperationId, "prevOp"].append(calcSeaDataDif(cmpStartDate, SeaDataDate(item.year, item.month, item.day, item.hour)))
-            if not self.grouped_data[item.campaignOperationId, item.status]:
-                self.grouped_data[item.campaignOperationId, item.status].append(1)
-            else:
-                self.grouped_data[item.campaignOperationId, item.status][0] += 1
-            if str(item.campaignOperationId) not in self.operationList:
-                self.operationList.append(str(item.campaignOperationId))
-
-
-        #for operation in self.operationList:
-        #    if not self.grouped_data[int(operation), "wait"]:
-        #        self.grouped_data[int(operation), "wait"].append(0)
-
+        self.campaigns: list[CampaignResult] = self.model.getAllCampaignResults()
 
         self.chart = QChart()
         self.chart.setAnimationOptions(QChart.AllAnimations)
-        self.add_series()
+        #self.addSeries(self.campaigns[0].id)
+
+        self.dropdown = QComboBox(self)
+        self.dropdown.addItems([str(cmp.id) for cmp in self.campaigns])
+        #self.dropdown.currentIndexChanged.connect(self.onCampaignChanged())
+        #self.dropdown.currentTextChanged.connect(self.onCampaignChanged())
+        self.dropdown.setCurrentIndex(0)
+        self.dropdown.activated.connect(self.onCampaignChanged)
 
         self.chart_view = QChartView(self.chart)
         self.chart_view.setRenderHint(QPainter.Antialiasing)
@@ -57,16 +41,50 @@ class CampaignFlowChartWidget(QWidget):
         self.chart_view.setRubberBand(QChartView.RectangleRubberBand)
         self.chart_view.setInteractive(True)
 
-        self.main_layout = QHBoxLayout()
-        size = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        self.main_layout = QVBoxLayout()
+        self.control_layout = QHBoxLayout()
 
+        self.control_layout.addWidget(QLabel("Select Campaign:"))
+        self.control_layout.addWidget(self.dropdown)
+
+        size = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         size.setHorizontalStretch(4)
         self.chart_view.setSizePolicy(size)
-        self.main_layout.addWidget(self.chart_view)
 
+        self.main_layout.addLayout(self.control_layout)
+        self.main_layout.addWidget(self.chart_view)
         self.setLayout(self.main_layout)
 
-    def add_series(self):
+    @QtCore.Slot()
+    def onCampaignChanged(self, a):
+        b = a
+        self.clearChart()
+        selectedCampaignId = int(self.dropdown.currentText())
+        self.addSeries(selectedCampaignId)
+
+    def addSeries(self, selectedCampaignId):
+        data = self.model.getCampaignResultValuesForCampaignResult(selectedCampaignId)  #78239
+
+        operationList = []
+        grouped_data = defaultdict(list)
+        cmpStartDate: SeaDataDate = SeaDataDate(data[0].year, data[0].month, data[0].day, data[0].hour)
+        currentOp = data[0].campaignOperationId
+        for item in data:
+            if item.campaignOperationId != currentOp:
+                currentOp = item.campaignOperationId
+                if not grouped_data[int(operationList[-1]), "wait"]:
+                    grouped_data[int(operationList[-1]), "wait"].append(0)
+                if not grouped_data[int(operationList[-1]), "prevOp"]:
+                    grouped_data[int(operationList[-1]), "prevOp"].append(0)
+                grouped_data[item.campaignOperationId, "prevOp"].append(
+                    calcSeaDataDif(cmpStartDate, SeaDataDate(item.year, item.month, item.day, item.hour)))
+            if not grouped_data[item.campaignOperationId, item.status]:
+                grouped_data[item.campaignOperationId, item.status].append(1)
+            else:
+                grouped_data[item.campaignOperationId, item.status][0] += 1
+            if str(item.campaignOperationId) not in operationList:
+                operationList.append(str(item.campaignOperationId))
+
         series = QHorizontalStackedBarSeries()
 
         bars = {}
@@ -76,43 +94,29 @@ class CampaignFlowChartWidget(QWidget):
         bars["work"] = QBarSet("work")
         bars["finish"] = QBarSet("finish")
         bars["prevOp"].setColor("transparent")
-        bars["wait"].setColor('#D3D3D3')    #Light Gray
-        bars["start"].setColor('#ADD8E6')   #Light Blue
-        bars["work"].setColor('#4682B4')    #Blue
+        bars["wait"].setColor('#D3D3D3')  #Light Gray
+        bars["start"].setColor('#ADD8E6')  #Light Blue
+        bars["work"].setColor('#4682B4')  #Blue
         bars["finish"].setColor('#1E3A5F')  #Dark Blue
 
-        cummulativeSum = 0
-        lastFinish = 0
-        newOpStartFlag = True
-        # TODO modeliranje start-start veze
-        for operation_id, values in self.grouped_data.items():
+        #cummulativeSum = 0
+        #lastFinish = 0
+        #newOpStartFlag = True
+        for operation_id, values in grouped_data.items():
             #if newOpStartFlag:
             #    bars["prevOp"].append(lastFinish)
             #    newOpStartFlag = False
             #cummulativeSum += values[0]*3
-            bars[operation_id[1]].append(values[0]*3)
+            bars[operation_id[1]].append(values[0] * 3)
             #if operation_id[1] == "finish":
             #    lastFinish += cummulativeSum
             #    cummulativeSum = 0
             #    newOpStartFlag = True
 
-        '''
-        for operation_id, values in reversed(self.grouped_data.items()):
-            if newOpStartFlag:
-                bars["prevOp"].append(lastFinish)
-                newOpStartFlag = False
-            cummulativeSum += values[0]*3
-            bars[operation_id[1]].append(values[0]*3)
-            if operation_id[1] == "start":
-                lastFinish += cummulativeSum
-                cummulativeSum = 0
-                newOpStartFlag = True
-        '''
-
-
         for status, bar_set in bars.items():
             #bar_set.hovered.connect(self.handle_hovered)
             series.append(bar_set)
+
 
         self.chart.addSeries(series)
 
@@ -126,7 +130,7 @@ class CampaignFlowChartWidget(QWidget):
         series.attachAxis(axisX)
 
         axisY = QBarCategoryAxis()
-        axisY.append(self.operationList)
+        axisY.append(operationList)
         axisY.setTitleText("Operation ID")
         self.chart.addAxis(axisY, Qt.AlignLeft)
         series.attachAxis(axisY)
@@ -140,3 +144,8 @@ class CampaignFlowChartWidget(QWidget):
     #        QToolTip.showText(QCursor.pos(), f"Status: {status}, Index: {index}")
     #    else:
     #        QToolTip.hideText()
+    def clearChart(self):
+        self.chart.removeAllSeries()
+        axes = self.chart.axes()
+        for axis in axes:
+            self.chart.removeAxis(axis)
