@@ -4,6 +4,7 @@ import logging
 from PySide6 import QtWidgets
 
 from gui.CampaignFlowChartWidget import CampaignFlowChartWidget
+from gui.CampaignOperationPieChart import CampaignOperationPieChart
 from gui.HomeWidget import HomeWidget
 from gui.SeaDataTableView import SeaDataTableViewWidget
 from gui.MainWindow import MainWindow
@@ -26,7 +27,8 @@ if __name__ == "__main__":
     seaDataWidget = SeaDataTableViewWidget()
     homeWidget = HomeWidget()
     campaignFlowChartWidget = CampaignFlowChartWidget()
-    widgets = [seaDataWidget, homeWidget, widget, campaignFlowChartWidget]
+    campaignOperationPieChart = CampaignOperationPieChart()
+    widgets = [homeWidget, seaDataWidget, widget, campaignFlowChartWidget, campaignOperationPieChart]
 
     window = MainWindow(widgets)
     window.show()

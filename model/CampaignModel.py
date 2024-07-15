@@ -55,6 +55,21 @@ class CampaignModel:
 
         return campaigns
 
+    def getAllCampaignIds(self) -> List[Campaign | None]:
+        query = QSqlQuery(self.db)
+        query.prepare("SELECT Id FROM Campaign")
+
+        if not query.exec():
+            logger.error(f"Query Error: {query.lastError().text()}")
+            return []
+
+        campaigns = []
+        while query.next():
+            campaignId = query.value(0)
+            campaigns.append(campaignId)
+
+        return campaigns
+
     def insertCampaign(self, campaign: Campaign) -> bool:
         query = QSqlQuery(self.db)
         query.prepare("INSERT INTO Campaign DEFAULT VALUES")

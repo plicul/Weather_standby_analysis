@@ -107,7 +107,7 @@ class CampaignResultValue:
     month: int
     day: int
     hour: int
-    operation_id: int
+    operationId: int
     status: str
     campaignOperationId: int
     relationship: Optional[str]

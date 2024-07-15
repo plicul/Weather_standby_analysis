@@ -143,11 +143,11 @@ def generateCampaignResultValues(campaignId, operations, date: SeaDataDate,
 
         else:
             lastPop = processedOperations.pop()
-            cmpResultVals = [val for val in cmpResultVals if val.operation_id != lastPop.operationId]
+            cmpResultVals = [val for val in cmpResultVals if val.operationId != lastPop.operationId]
             operationsStack.append(lastPop)
             while processedOperations and not (processedOperations[-1].relation in ["F-S_NF", "S-S_NF", ""]):
                 lastPop = processedOperations.pop()
-                cmpResultVals = [val for val in cmpResultVals if val.operation_id != lastPop.operationId]
+                cmpResultVals = [val for val in cmpResultVals if val.operationId != lastPop.operationId]
                 operationsStack.append(lastPop)
 
             if cmpResultVals:

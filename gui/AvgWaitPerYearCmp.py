@@ -16,12 +16,12 @@ from model.SeaDataModel import SeaDataModel
 from utils import calcSeaDataDif
 
 
-class CampaignFlowChartWidget(QWidget):
+class AvgWaitPerYearCmp(QWidget):
     def __init__(self):
         super().__init__()
 
         self.model = CampaignResultModel()
-        self.name = "Campaign Flow Chart"
+        self.name = "Average Wait Per Year Chart"
         self.campaigns: list[CampaignResult] = self.model.getAllCampaignResults()
 
         self.chart = QChart()

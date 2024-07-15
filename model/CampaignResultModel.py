@@ -60,7 +60,7 @@ class CampaignResultModel:
                 month=query.value(2),
                 day=query.value(3),
                 hour=query.value(4),
-                operation_id=query.value(5),
+                operationId=query.value(5),
                 status=query.value(6),
                 campaignOperationId=query.value(7),
                 relationship=query.value(8),
@@ -68,6 +68,41 @@ class CampaignResultModel:
             cmpResultVals.append(cmpResultVal)
 
         return cmpResultVals
+
+    def insertCampaignResultValuesBatch(self, campaignResultId, resultValues: List[CampaignResultValue]):
+        query = QSqlQuery(self.db)
+
+        self.db.transaction()
+        years = list(map(lambda resultVal: resultVal.year, resultValues))
+        months = list(map(lambda resultVal: resultVal.month, resultValues))
+        days = list(map(lambda resultVal: resultVal.day, resultValues))
+        hours = list(map(lambda resultVal: resultVal.hour, resultValues))
+        operations = list(map(lambda resultVal: resultVal.operationId, resultValues))
+        statuses = list(map(lambda resultVal: resultVal.status, resultValues))
+        campaignOperations = list(map(lambda resultVal: resultVal.campaignOperationId, resultValues))
+
+
+        query.prepare(
+            "INSERT INTO Campaign_Result_Value(campaign_result_id, year, month, day, hour, operation_id, status,campaign_operation_id) VALUES (?,?,?,?,?,?,?,?)")
+        query.addBindValue(campaignResultId)
+        query.addBindValue(years)
+        query.addBindValue(months)
+        query.addBindValue(days)
+        query.addBindValue(hours)
+        query.addBindValue(operations)
+        query.addBindValue(statuses)
+        query.addBindValue(campaignOperations)
+
+        if not query.execBatch():
+            x = query.lastError().text()
+            logger.error(f"Insert Error (CampaignResultValue): {query.lastError().text()}")
+            self.db.rollback()  # Rollback transaction on error
+            return False
+
+        query.clear()
+
+        self.db.commit()
+        return True
 
     def insertCampaignResultValues(self, campaignResultId, resultValues: List[CampaignResultValue]):
         query = QSqlQuery(self.db)
@@ -82,7 +117,7 @@ class CampaignResultModel:
             query.addBindValue(resultValue.month)
             query.addBindValue(resultValue.day)
             query.addBindValue(resultValue.hour)
-            query.addBindValue(resultValue.operation_id)
+            query.addBindValue(resultValue.operationId)
             query.addBindValue(resultValue.status)
             query.addBindValue(resultValue.campaignOperationId)
 
@@ -120,10 +155,11 @@ class CampaignResultModel:
             query.exec()
             query.next()
             campaignResultId = query.value(0)
-
-            if not self.insertCampaignResultValues(campaignResultId, campaignResult.resultValues):
-                return False
-
+            try:
+                if not self.insertCampaignResultValues(campaignResultId, campaignResult.resultValues):
+                    return False
+            except Exception as e:
+                b = e
         self.db.commit()
 
         return True
@@ -142,30 +178,31 @@ class CampaignResultModel:
         return cmpResList
 
     # TODO
-    def getTotalWaitTotalWork(self, campaignResultId):
+    def getTotalWaitTotalWork(self, campaignId):
         query = QSqlQuery(self.db)
+
+        totalWait = 0
+        totalWork = 0
+
         query.prepare(
-            "Select cmpResVal.campaign_result_id, cmpResVal.year, cmpResVal.month, cmpResVal.day, cmpResVal.hour, cmpResVal.operation_id, cmpResVal.status, cmpResVal.campaign_operation_id, cmpOp.Relationship  from Campaign_Result_Value as cmpResVal left join main.Campaign_Operations cmpOp on cmpOp.id = cmpResVal.campaign_operation_id where cmpResVal.campaign_result_id = :campaignResultId")
-        query.bindValue(":campaignResultId", campaignResultId)
+            "Select count(*) from Campaign_Result_Value as cmpResVal left join main.Campaign_Operations cmpOp on cmpOp.id = cmpResVal.campaign_operation_id where cmpOp.campaign_id = :campaignId and cmpResVal.status = 'wait'")
+        query.bindValue(":campaignId", campaignId)
 
         if not query.exec():
             logger.error(f"Query Error: {query.lastError().text()}")
-            return None
+            return None, None
+        query.next()
+        totalWait = query.value(0)
 
-        cmpResultVals: list[CampaignResultValue] = []
+        query.clear()
+        query.prepare(
+            "Select count(*) from Campaign_Result_Value as cmpResVal left join main.Campaign_Operations cmpOp on cmpOp.id = cmpResVal.campaign_operation_id where cmpOp.campaign_id = :campaignId and cmpResVal.status != 'wait'")
+        query.bindValue(":campaignId", campaignId)
 
-        while query.next():
-            cmpResultVal = CampaignResultValue(
-                campaignResultId=query.value(0),
-                year=query.value(1),
-                month=query.value(2),
-                day=query.value(3),
-                hour=query.value(4),
-                operation_id=query.value(5),
-                status=query.value(6),
-                campaignOperationId=query.value(7),
-                relationship=query.value(8),
-            )
-            cmpResultVals.append(cmpResultVal)
+        if not query.exec():
+            logger.error(f"Query Error: {query.lastError().text()}")
+            return None, None
+        query.next()
+        totalWork = query.value(0)
 
-        return cmpResultVals
+        return totalWait, totalWork
