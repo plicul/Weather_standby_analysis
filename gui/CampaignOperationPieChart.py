@@ -34,7 +34,7 @@ class CampaignOperationPieChart(QWidget):
         self.totalWait, self.totalWork = 0, 0
 
         self.chart = QChart()
-        self.chart.setTitle('Simple piechart example')
+        self.chart.setTitle('Campaign Operation Wait/Work Pie Chart')
 
         self.chart_view = QChartView(self.chart)
         self.chart_view.setRenderHint(QPainter.Antialiasing)
@@ -63,6 +63,8 @@ class CampaignOperationPieChart(QWidget):
 
     def addSeries(self, campaignId: int):
         self.totalWait, self.totalWork = self.campaignResultModel.getTotalWaitTotalWork(campaignId) #dropdown sa campaign
+        if self.totalWait is None or self.totalWork is None:
+            return
 
         series = QPieSeries()
 
