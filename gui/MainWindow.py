@@ -53,4 +53,6 @@ class MainWindow(QMainWindow):
     def switch_widget(self, widget_name):
         new_widget = self.widget_dict.get(widget_name)
         if new_widget:
+            if new_widget.update is not None:
+                new_widget.update()
             self.stacked_widget.setCurrentWidget(new_widget)

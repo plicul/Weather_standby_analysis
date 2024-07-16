@@ -55,6 +55,9 @@ class CampaignOperationPieChart(QWidget):
         self.main_layout.addWidget(self.chart_view)
         self.setLayout(self.main_layout)
 
+    def update(self):
+        self.campaigns: list[int] = self.campaignModel.getAllCampaignIds()
+
     @QtCore.Slot()
     def onCampaignChanged(self, a):
         self.clearChart()
@@ -62,7 +65,8 @@ class CampaignOperationPieChart(QWidget):
         self.addSeries(selectedCampaignId)
 
     def addSeries(self, campaignId: int):
-        self.totalWait, self.totalWork = self.campaignResultModel.getTotalWaitTotalWork(campaignId) #dropdown sa campaign
+        self.totalWait, self.totalWork = self.campaignResultModel.getTotalWaitTotalWork(
+            campaignId)  #dropdown sa campaign
         if self.totalWait is None or self.totalWork is None:
             return
 

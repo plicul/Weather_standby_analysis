@@ -26,7 +26,7 @@ class CampaignFlowChartWidget(QWidget):
 
         self.chart = QChart()
         self.chart.setAnimationOptions(QChart.AllAnimations)
-        #self.addSeries(self.campaigns[0].id)
+        self.addSeries(self.campaigns[0].id) if self.campaigns and len(self.campaigns) > 0 else None
 
         self.dropdown = QComboBox(self)
         self.dropdown.addItems([str(cmp.id) for cmp in self.campaigns])
@@ -54,6 +54,9 @@ class CampaignFlowChartWidget(QWidget):
         self.main_layout.addLayout(self.control_layout)
         self.main_layout.addWidget(self.chart_view)
         self.setLayout(self.main_layout)
+
+    def update(self):
+        self.campaigns: list[CampaignResult] = self.model.getAllCampaignResults()
 
     @QtCore.Slot()
     def onCampaignChanged(self, a):

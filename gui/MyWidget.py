@@ -83,3 +83,5 @@ class MyWidget(QtWidgets.QWidget):
                 logger.error(f"Error Generating Operation Results: {e}")
                 print(e)
 
+    def update(self):
+        pass

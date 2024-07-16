@@ -55,7 +55,7 @@ class CampaignModel:
 
         return campaigns
 
-    def getAllCampaignIds(self) -> List[Campaign | None]:
+    def getAllCampaignIds(self) -> List[int | None]:
         query = QSqlQuery(self.db)
         query.prepare("SELECT Id FROM Campaign")
 

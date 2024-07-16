@@ -10,3 +10,6 @@ class HomeWidget(QWidget):
         label = QtWidgets.QLabel("Weather Standby Analysis")
         layout.addWidget(label)
         self.setLayout(layout)
+
+    def update(self):
+        pass

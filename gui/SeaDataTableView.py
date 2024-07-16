@@ -50,7 +50,6 @@ class SeaDataTableViewWidget(QWidget):
 
         self.setLayout(self.main_layout)
 
-
     def add_series(self, name):
         # Create QLineSeries
         self.series = QLineSeries()
@@ -77,7 +76,6 @@ class SeaDataTableViewWidget(QWidget):
             xValue.setDate(QDate(year, month, day))
             xValue.setTime(QTime(hour, 0))
 
-
             #date_fmt = "yyyy"
 
             if True:
@@ -97,8 +95,8 @@ class SeaDataTableViewWidget(QWidget):
         self.axis_x.setTitleText("Date")
         self.chart.addAxis(self.axis_x, Qt.AlignBottom)
         #if timestamps:
-       #     min_time = min(timestamps)
-       #     max_time = max(timestamps)
+        #     min_time = min(timestamps)
+        #     max_time = max(timestamps)
         #    self.axis_x.setRange(QDateTime.fromSecsSinceEpoch(min_time), QDateTime.fromSecsSinceEpoch(max_time))
         self.series.attachAxis(self.axis_x)
 
@@ -111,3 +109,6 @@ class SeaDataTableViewWidget(QWidget):
 
         color_name = self.series.pen().color().name()
         self.model.color = f"{color_name}"
+
+    def update(self):
+        pass
