@@ -33,20 +33,24 @@ def generateCampaignResultValuesUntilFromTo(currentDate, firstPassingDate, endDa
 
 
 def checkNextOperation(nextOperation, firstPassingDate, endDate, operationResultModel):
+    try:
+        if nextOperation.relation == "F-S_NF":
+            nextOpFirstPassingDate, endDateNew = operationResultModel.getFirstPassingDate(endDate, nextOperation)
+            return endDate <= nextOpFirstPassingDate
+        elif nextOperation.relation == "F-S_F":
+            nextOpFirstPassingDate, endDateNew = operationResultModel.getFirstPassingDate(endDate, nextOperation)
+            return endDate == nextOpFirstPassingDate
+        elif nextOperation.relation == "S-S_NF":
+            nextOpFirstPassingDate, endDateNew = operationResultModel.getFirstPassingDate(firstPassingDate, nextOperation)
+            return firstPassingDate <= nextOpFirstPassingDate
+        elif nextOperation.relation == "S-S_F":
+            nextOpFirstPassingDate, endDateNew = operationResultModel.getFirstPassingDate(firstPassingDate, nextOperation)
+            return firstPassingDate == nextOpFirstPassingDate
+        return False
+    except Exception as e:
+        return None
 
-    if nextOperation.relation == "F-S_NF":
-        nextOpFirstPassingDate, endDateNew = operationResultModel.getFirstPassingDate(endDate, nextOperation)
-        return endDate <= nextOpFirstPassingDate
-    elif nextOperation.relation == "F-S_F":
-        nextOpFirstPassingDate, endDateNew = operationResultModel.getFirstPassingDate(endDate, nextOperation)
-        return endDate == nextOpFirstPassingDate
-    elif nextOperation.relation == "S-S_NF":
-        nextOpFirstPassingDate, endDateNew = operationResultModel.getFirstPassingDate(firstPassingDate, nextOperation)
-        return firstPassingDate <= nextOpFirstPassingDate
-    elif nextOperation.relation == "S-S_F":
-        nextOpFirstPassingDate, endDateNew = operationResultModel.getFirstPassingDate(firstPassingDate, nextOperation)
-        return firstPassingDate == nextOpFirstPassingDate
-    return False
+
 
     #nextOpFirstPassingDate, _ = operationResultModel.getFirstPassingDate(endDate,
     #                                                                     nextOperation) if nextOperation.relation in [
@@ -119,8 +123,14 @@ def generateCampaignResultValues(campaignId, operations, date: SeaDataDate,
                                                                                                endDate,
                                                                                                operation.operationId,
                                                                                                operation.id)
-
-        if not nextOperation or checkNextOperation(nextOperation, firstPassingDate, endDate, operationResultModel):
+        nextOperationRes: bool | None = checkNextOperation(nextOperation, firstPassingDate, endDate, operationResultModel)
+        # nextOperationRes is None if no successfull date can be found!
+        # TODO je li ovo tocno
+        if nextOperation is not None and nextOperationRes is None:
+            return CampaignResult(id=None, campaign_id=campaignId, year=date.year, month=date.month, day=date.day,
+                                  hour=date.hour, resultValues=cmpResultVals, success=False,
+                                  total_wait=getTotalWait(cmpResultVals), total_work=getTotalWork(cmpResultVals))
+        if not nextOperation or nextOperationRes:
             if timesInRecoveryLoop > 0:
                 recoveryResultVals = []
                 temp_date = SeaDataDate(cmpResultVals[-1].year, cmpResultVals[-1].month, cmpResultVals[-1].day, cmpResultVals[-1].hour)

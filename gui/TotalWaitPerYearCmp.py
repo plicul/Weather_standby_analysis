@@ -10,7 +10,8 @@ from PySide6.QtWidgets import (QHBoxLayout, QHeaderView, QSizePolicy,
                                QTableView, QWidget, QGraphicsRectItem, QGraphicsScene, QToolTip, QComboBox, QVBoxLayout,
                                QLabel)
 
-from consts.types import CampaignResultValue, SeaDataDate, CampaignResult
+from consts.types import CampaignResultValue, SeaDataDate, CampaignResult, Campaign
+from model.CampaignModel import CampaignModel
 from model.CampaignResultModel import CampaignResultModel
 from model.SeaDataModel import SeaDataModel
 from utils import calcSeaDataDif
@@ -21,15 +22,16 @@ class AvgWaitPerYearCmp(QWidget):
         super().__init__()
 
         self.model = CampaignResultModel()
+        self.campaignModel = CampaignModel()
         self.name = "Average Wait Per Year Chart"
-        self.campaigns: list[CampaignResult] = self.model.getAllCampaignResults()
+        self.campaigns: list[Campaign] = self.campaignModel.getAllCampaignIds()
 
         self.chart = QChart()
         self.chart.setAnimationOptions(QChart.AllAnimations)
-        #self.addSeries(self.campaigns[0].id)
+        self.addSeries(self.campaigns[0])
 
         self.dropdown = QComboBox(self)
-        self.dropdown.addItems([str(cmp.id) for cmp in self.campaigns])
+        self.dropdown.addItems([str(cmp) for cmp in self.campaigns])
         #self.dropdown.currentIndexChanged.connect(self.onCampaignChanged())
         #self.dropdown.currentTextChanged.connect(self.onCampaignChanged())
         self.dropdown.setCurrentIndex(0)
@@ -63,77 +65,40 @@ class AvgWaitPerYearCmp(QWidget):
         self.addSeries(selectedCampaignId)
 
     def addSeries(self, selectedCampaignId):
-        data = self.model.getCampaignResultValuesForCampaignResult(selectedCampaignId)  #78239
+        data = self.model.calcWaitTimePerYear(selectedCampaignId)
 
-        operationList = []
-        grouped_data = defaultdict(list)
-        cmpStartDate: SeaDataDate = SeaDataDate(data[0].year, data[0].month, data[0].day, data[0].hour)
-        currentOp = data[0].campaignOperationId
-        for item in data:
-            if item.campaignOperationId != currentOp:
-                currentOp = item.campaignOperationId
-                if not grouped_data[int(operationList[-1]), "wait"]:
-                    grouped_data[int(operationList[-1]), "wait"].append(0)
-                if not grouped_data[int(operationList[-1]), "prevOp"]:
-                    grouped_data[int(operationList[-1]), "prevOp"].append(0)
-                grouped_data[item.campaignOperationId, "prevOp"].append(
-                    calcSeaDataDif(cmpStartDate, SeaDataDate(item.year, item.month, item.day, item.hour)))
-            if not grouped_data[item.campaignOperationId, item.status]:
-                grouped_data[item.campaignOperationId, item.status].append(1)
-            else:
-                grouped_data[item.campaignOperationId, item.status][0] += 1
-            if str(item.campaignOperationId) not in operationList:
-                operationList.append(str(item.campaignOperationId))
+        set = QBarSet("Total Wait Time")
 
-        series = QHorizontalStackedBarSeries()
+        series = QBarSeries()
 
         bars = {}
-        bars["prevOp"] = QBarSet("")
-        bars["wait"] = QBarSet("wait")
-        bars["start"] = QBarSet("start")
-        bars["work"] = QBarSet("work")
-        bars["finish"] = QBarSet("finish")
-        bars["prevOp"].setColor("transparent")
-        bars["wait"].setColor('#D3D3D3')  #Light Gray
-        bars["start"].setColor('#ADD8E6')  #Light Blue
-        bars["work"].setColor('#4682B4')  #Blue
-        bars["finish"].setColor('#1E3A5F')  #Dark Blue
+        for dataVal in data:
+            bars[dataVal[0]] = set # QBarSet(dataVal[0])
+            bars[dataVal[0]].append(dataVal[1])
+        #bars["prevOp"] = QBarSet("")
+        #bars["finish"].setColor('#1E3A5F')  #Dark Blue
 
-        #cummulativeSum = 0
-        #lastFinish = 0
-        #newOpStartFlag = True
-        for operation_id, values in grouped_data.items():
-            #if newOpStartFlag:
-            #    bars["prevOp"].append(lastFinish)
-            #    newOpStartFlag = False
-            #cummulativeSum += values[0]*3
-            bars[operation_id[1]].append(values[0] * 3)
-            #if operation_id[1] == "finish":
-            #    lastFinish += cummulativeSum
-            #    cummulativeSum = 0
-            #    newOpStartFlag = True
-
-        for status, bar_set in bars.items():
+        years = []
+        for year, bar_set in bars.items():
             #bar_set.hovered.connect(self.handle_hovered)
             series.append(bar_set)
+            years.append(year)
 
         self.chart.addSeries(series)
 
-        axisX = QValueAxis()
-        axisX.setTitleText("Time (h)")
-        axisX.setMin(0)
-        axisX.setTickInterval(1)
-        axisX.setTickCount(10)
+        axisX = QBarCategoryAxis()
+        axisX.append(years)
+        axisX.setTitleText("Year")
         self.chart.addAxis(axisX, Qt.AlignBottom)
         series.attachAxis(axisX)
 
         axisY = QBarCategoryAxis()
-        axisY.append(operationList)
+        #axisY.append(operationList)
         axisY.setTitleText("Operation ID")
         self.chart.addAxis(axisY, Qt.AlignLeft)
         series.attachAxis(axisY)
 
-        self.chart.setTitle("Campaign Result Gantt Chart")
+        self.chart.setTitle("Total Wait Time Per Year")
         self.chart.legend().setVisible(True)
         self.chart.legend().setAlignment(Qt.AlignBottom)
 

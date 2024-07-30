@@ -3,6 +3,7 @@ import logging
 
 from PySide6 import QtWidgets
 
+from gui.TotalWaitPerYearCmp import AvgWaitPerYearCmp
 from gui.CampaignFlowChartWidget import CampaignFlowChartWidget
 from gui.CampaignOperationPieChart import CampaignOperationPieChart
 from gui.HomeWidget import HomeWidget
@@ -28,7 +29,8 @@ if __name__ == "__main__":
     homeWidget = HomeWidget()
     campaignFlowChartWidget = CampaignFlowChartWidget()
     campaignOperationPieChart = CampaignOperationPieChart()
-    widgets = [homeWidget, seaDataWidget, widget, campaignFlowChartWidget, campaignOperationPieChart]
+    avgWaitPerYearCmp = AvgWaitPerYearCmp()
+    widgets = [homeWidget, seaDataWidget, widget, campaignFlowChartWidget, campaignOperationPieChart,avgWaitPerYearCmp]
 
     window = MainWindow(widgets)
     window.show()
