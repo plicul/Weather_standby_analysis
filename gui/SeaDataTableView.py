@@ -103,7 +103,7 @@ class SeaDataTableViewWidget(QWidget):
         self.axis_y = QValueAxis()
         self.axis_y.setTickCount(10)
         self.axis_y.setLabelFormat("%.2f")
-        self.axis_y.setTitleText("Magnitude")
+        self.axis_y.setTitleText("Wave Height")
         self.chart.addAxis(self.axis_y, Qt.AlignLeft)
         self.series.attachAxis(self.axis_y)
 

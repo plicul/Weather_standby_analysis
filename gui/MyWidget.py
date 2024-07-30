@@ -53,6 +53,7 @@ class MyWidget(QtWidgets.QWidget):
         #        logger.error(f"Error Generating Operation Results: {e}")
         #        print(e)
 
+        # Todo select which campaign to simulate
         campaign_id = 1
         campaign = self.campaignModel.getCampaign(campaign_id)
 

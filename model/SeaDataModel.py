@@ -69,7 +69,7 @@ class SeaDataModel(QSqlTableModel):
 
     def getSeaDataDateRange(self) -> list[SeaDataDate]:
         query = QSqlQuery(self.db)
-        query.prepare("SELECT year, month, day, hour FROM Sea_Data where Hour = 0")
+        query.prepare("SELECT year, month, day, hour FROM Sea_Data where Hour = 0 ")
 
         if not query.exec():
             logger.error(f"Query Error: {query.lastError().text()}")

@@ -31,8 +31,8 @@ def findClosestWaveDir(limitVals: list[LimitValue], relativeDir: float, wavePeri
 
 def findWaveHeightLimit(limitVals: list[LimitValue], relativeDir: float, wavePeriod: float) -> float:
     closestWaveDir = findClosestWaveDir(limitVals, relativeDir, wavePeriod)
-
     waveDirLimits = [limitVal for limitVal in limitVals if limitVal.waveDir == closestWaveDir]
+
     waveDirLimits.sort(key=lambda limitVal: limitVal.wavePeriod)
     smallerPeriodLimit: Optional[LimitValue] = None
     biggerPeriodLimit: Optional[LimitValue] = None
@@ -51,9 +51,10 @@ def findWaveHeightLimit(limitVals: list[LimitValue], relativeDir: float, wavePer
 
 def getRelativeDir(waveDir: float, shipDir: float):
     relativeDir = (waveDir - shipDir) % 360
-    if relativeDir < 0:
-        relativeDir += 360
     return relativeDir
+    #if relativeDir < 0:
+    #    relativeDir += 360
+
 
 
 def limitCheck(waveHeight: float, waveDir: float, wavePeriod: float, shipDir: float, limitVals: list[LimitValue]):
@@ -76,6 +77,7 @@ class OperationResultModel(QSqlTableModel):
         super(OperationResultModel, self).__init__(parent, db)
         self.setTable("Operation_Result")
         self.setEditStrategy(QSqlTableModel.OnManualSubmit)
+        self.db = db
         if not self.select():
             logger.error(f"Error: {self.lastError().text()}")
         else:
@@ -115,10 +117,21 @@ class OperationResultModel(QSqlTableModel):
         return True
 
     def generateOperationResults(self, seaDataList: list[SeaData], operation: Operation):
+        operationResults = []
         for seaData in seaDataList:
             timeSlotsReq = math.ceil(operation.timeReq // 3)
             seaDataIndex = seaDataList.index(seaData)
             seaDataTimeSlots: list[SeaData] = []
+            if seaDataIndex+timeSlotsReq >= len(seaDataList):
+                operationResult = OperationResult(
+                    operationId=operation.id,
+                    year=seaData.year,
+                    month=seaData.month,
+                    day=seaData.day,
+                    hour=seaData.hour,
+                    success=False
+                )
+                continue
             for timeSlot in range(timeSlotsReq):
                 seaDataTimeSlots.append(seaDataList[seaDataIndex + timeSlot])
 
@@ -130,7 +143,9 @@ class OperationResultModel(QSqlTableModel):
                 hour=seaData.hour,
                 success=successCheck(operation.shipDir, operation.limit.values, seaDataTimeSlots, operation.type)
             )
-            self.insertRowData(operationResult)
+            operationResults.append(operationResult)
+            #self.insertRowData(operationResult)
+        self.insertRowDataQuery(operationResults)
         return
 
     def getFirstPassingDate(self, currentDate: SeaDataDate, operation: CampaignOperation):
@@ -165,8 +180,36 @@ class OperationResultModel(QSqlTableModel):
 
                 return SeaDataDate(first_passing_date.year, first_passing_date.month, first_passing_date.day, first_passing_date.hour), SeaDataDate(end_date.year, end_date.month, end_date.day, end_date.hour)
             else:
-                logger.error("No passing date found that meets the criteria.")
+                logger.info("No passing date found that meets the criteria.")
                 return None, None
         else:
             logger.error(f"Query Error: {query.lastError().text()}")
             return None, None
+
+    def insertRowDataQuery(self, operationResults: list[OperationResult]):
+        query = QSqlQuery(self.db)
+        query.exec("begin exclusive transaction;")
+
+        #self.db.transaction()
+
+        query.prepare(
+            "INSERT INTO Operation_Result(Operation_Id, Year, Month, Day, Hour, Success) VALUES (?,?,?,?,?,?)")
+
+        for resultValue in operationResults:
+            query.addBindValue(resultValue.operationId)
+            query.addBindValue(resultValue.year)
+            query.addBindValue(resultValue.month)
+            query.addBindValue(resultValue.day)
+            query.addBindValue(resultValue.hour)
+            query.addBindValue(resultValue.success)
+            query.exec()
+
+        #if not query.execBatch():
+        #    x = query.lastError().text()
+        #    logger.error(f"Insert Error (CampaignResultValue): {query.lastError().text()}")
+        #    self.db.rollback()  # Rollback transaction on error
+        #    return False
+        query.exec("commit;")
+
+        #self.db.commit()  # Commit the transaction
+        return True
