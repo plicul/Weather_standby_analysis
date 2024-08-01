@@ -64,9 +64,6 @@ class CampaignOperationPieChart(QWidget):
 
     def clearChart(self):
         self.chart.removeAllSeries()
-        axes = self.chart.axes()
-        for axis in axes:
-            self.chart.removeAxis(axis)
 
     @QtCore.Slot()
     def onCampaignChanged(self, a):
