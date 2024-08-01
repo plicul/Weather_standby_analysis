@@ -56,7 +56,11 @@ class CampaignOperationPieChart(QWidget):
         self.setLayout(self.main_layout)
 
     def update(self):
-        self.campaigns: list[int] = self.campaignModel.getAllCampaignIds()
+        newCampaigns: list[int | None] = self.campaignModel.getAllCampaignIds()
+        if len(newCampaigns) != len(self.campaigns):
+            self.campaigns: list[int | None] = newCampaigns
+            self.dropdown.clear()
+            self.dropdown.addItems([str(cmp.id) for cmp in self.campaigns])
 
     @QtCore.Slot()
     def onCampaignChanged(self, a):

@@ -56,7 +56,11 @@ class CampaignFlowChartWidget(QWidget):
         self.setLayout(self.main_layout)
 
     def update(self):
-        self.campaigns: list[CampaignResult] = self.model.getAllCampaignResults()
+        newCampaigns: list[CampaignResult] = self.model.getAllCampaignResults()
+        if len(newCampaigns) != len(self.campaigns):
+            self.campaigns: list[CampaignResult] = newCampaigns
+            self.dropdown.clear()
+            self.dropdown.addItems([str(cmp.id) for cmp in self.campaigns])
 
     @QtCore.Slot()
     def onCampaignChanged(self, a):

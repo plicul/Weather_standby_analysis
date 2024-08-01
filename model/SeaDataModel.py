@@ -81,3 +81,18 @@ class SeaDataModel(QSqlTableModel):
             seaDataDateList.append(seaDataTmp)
 
         return seaDataDateList
+
+    def getDefinedYears(self):
+        query = QSqlQuery(self.db)
+        query.prepare("SELECT distinct(year) FROM Sea_Data ")
+
+        if not query.exec():
+            logger.error(f"Query Error: {query.lastError().text()}")
+            return []
+
+        years = []
+        while query.next():
+            year = query.value(0)
+            years.append(year)
+
+        return years

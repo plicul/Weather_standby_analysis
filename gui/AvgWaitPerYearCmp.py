@@ -17,13 +17,13 @@ from model.SeaDataModel import SeaDataModel
 from utils import calcSeaDataDif
 
 
-class TotalWaitPerYearCmp(QWidget):
+class AvgWaitPerYearCmp(QWidget):
     def __init__(self):
         super().__init__()
 
         self.model = CampaignResultModel()
         self.campaignModel = CampaignModel()
-        self.name = "Total Wait Per Year Chart"
+        self.name = "Average Wait Per Year Chart"
         self.campaigns: list[int] = self.campaignModel.getAllCampaignIds()
 
         self.chart = QChart()
@@ -57,13 +57,6 @@ class TotalWaitPerYearCmp(QWidget):
         self.main_layout.addWidget(self.chart_view)
         self.setLayout(self.main_layout)
 
-    def update(self):
-        newCampaigns= self.campaignModel.getAllCampaignIds()
-        if len(newCampaigns) != len(self.campaigns):
-            self.campaigns: list[CampaignResult] = newCampaigns
-            self.dropdown.clear()
-            self.dropdown.addItems([str(cmp.id) for cmp in self.campaigns])
-
     @QtCore.Slot()
     def onCampaignChanged(self, a):
         b = a
@@ -71,10 +64,17 @@ class TotalWaitPerYearCmp(QWidget):
         selectedCampaignId = int(self.dropdown.currentText())
         self.addSeries(selectedCampaignId)
 
-    def addSeries(self, selectedCampaignId):
-        data = self.model.calcTotalWaitTimePerYear(selectedCampaignId)
+    def update(self):
+        newCampaigns= self.campaignModel.getAllCampaignIds()
+        if len(newCampaigns) != len(self.campaigns):
+            self.campaigns: list[CampaignResult] = newCampaigns
+            self.dropdown.clear()
+            self.dropdown.addItems([str(cmp.id) for cmp in self.campaigns])
 
-        set = QBarSet("Total Wait Time")
+    def addSeries(self, selectedCampaignId):
+        data = self.model.calcAvgWaitTimePerYear(selectedCampaignId)
+
+        set = QBarSet("Average Wait Time")
 
         series = QBarSeries()
 
@@ -100,13 +100,13 @@ class TotalWaitPerYearCmp(QWidget):
         series.attachAxis(axisX)
 
         axisY = QValueAxis()
-        axisY.setTitleText("Total Wait Time")
+        axisY.setTitleText("Average Wait Time")
         axisY.setTickInterval(1)
         axisY.setTickCount(10)
         self.chart.addAxis(axisY, Qt.AlignLeft)
         series.attachAxis(axisY)
 
-        self.chart.setTitle("Total Wait Time Per Year")
+        self.chart.setTitle("Average Wait Time Per Year")
         self.chart.legend().setVisible(True)
         self.chart.legend().setAlignment(Qt.AlignBottom)
 

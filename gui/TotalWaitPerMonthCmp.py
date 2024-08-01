@@ -17,14 +17,19 @@ from model.SeaDataModel import SeaDataModel
 from utils import calcSeaDataDif
 
 
-class TotalWaitPerYearCmp(QWidget):
+class TotalWaitPerMonthCmp(QWidget):
     def __init__(self):
         super().__init__()
 
+
         self.model = CampaignResultModel()
         self.campaignModel = CampaignModel()
-        self.name = "Total Wait Per Year Chart"
+        self.seaDataModel = SeaDataModel()
+        self.name = "Total Wait Per Month Chart"
         self.campaigns: list[int] = self.campaignModel.getAllCampaignIds()
+        self.years = self.seaDataModel.getDefinedYears()
+        self.year = self.years[0]
+        self.selectedCampaignId = self.campaigns[0]
 
         self.chart = QChart()
         self.chart.setAnimationOptions(QChart.AllAnimations)
@@ -32,10 +37,13 @@ class TotalWaitPerYearCmp(QWidget):
 
         self.dropdown = QComboBox(self)
         self.dropdown.addItems([str(cmp) for cmp in self.campaigns])
-        #self.dropdown.currentIndexChanged.connect(self.onCampaignChanged())
-        #self.dropdown.currentTextChanged.connect(self.onCampaignChanged())
         self.dropdown.setCurrentIndex(0)
         self.dropdown.activated.connect(self.onCampaignChanged)
+
+        self.yearDropdown = QComboBox(self)
+        self.yearDropdown.addItems([str(cmp) for cmp in self.years])
+        self.yearDropdown.setCurrentIndex(0)
+        self.yearDropdown.activated.connect(self.onYearChanged)
 
         self.chart_view = QChartView(self.chart)
         self.chart_view.setRenderHint(QPainter.Antialiasing)
@@ -49,6 +57,9 @@ class TotalWaitPerYearCmp(QWidget):
         self.control_layout.addWidget(QLabel("Select Campaign:"))
         self.control_layout.addWidget(self.dropdown)
 
+        self.control_layout.addWidget(QLabel("Select Year:"))
+        self.control_layout.addWidget(self.yearDropdown)
+
         size = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         size.setHorizontalStretch(4)
         self.chart_view.setSizePolicy(size)
@@ -58,21 +69,33 @@ class TotalWaitPerYearCmp(QWidget):
         self.setLayout(self.main_layout)
 
     def update(self):
+        newYears = self.seaDataModel.getDefinedYears()
         newCampaigns= self.campaignModel.getAllCampaignIds()
         if len(newCampaigns) != len(self.campaigns):
             self.campaigns: list[CampaignResult] = newCampaigns
             self.dropdown.clear()
             self.dropdown.addItems([str(cmp.id) for cmp in self.campaigns])
+        if len(self.years) != len(newYears):
+            self.years = newYears
+            self.yearDropdown.clear()
+            self.yearDropdown.addItems([str(cmp) for cmp in self.years])
 
     @QtCore.Slot()
     def onCampaignChanged(self, a):
         b = a
         self.clearChart()
-        selectedCampaignId = int(self.dropdown.currentText())
-        self.addSeries(selectedCampaignId)
+        self.selectedCampaignId = int(self.dropdown.currentText())
+        #self.addSeries(self.selectedCampaignId)
 
-    def addSeries(self, selectedCampaignId):
-        data = self.model.calcTotalWaitTimePerYear(selectedCampaignId)
+    @QtCore.Slot()
+    def onYearChanged(self, a):
+        b = a
+        self.clearChart()
+        self.year = int(self.yearDropdown.currentText())
+        self.addSeries(self.selectedCampaignId, year=self.year)
+
+    def addSeries(self, selectedCampaignId,year):
+        data = self.model.calcTotalWaitTimePerMonth(selectedCampaignId,year)
 
         set = QBarSet("Total Wait Time")
 
@@ -85,17 +108,17 @@ class TotalWaitPerYearCmp(QWidget):
         #bars["prevOp"] = QBarSet("")
         #bars["finish"].setColor('#1E3A5F')  #Dark Blue
 
-        years = []
-        for year, bar_set in bars.items():
+        months = []
+        for month, bar_set in bars.items():
             #bar_set.hovered.connect(self.handle_hovered)
             series.append(bar_set)
-            years.append(year)
+            months.append(month)
 
         self.chart.addSeries(series)
 
         axisX = QBarCategoryAxis()
-        axisX.append(years)
-        axisX.setTitleText("Year")
+        axisX.append(months)
+        axisX.setTitleText("Month")
         self.chart.addAxis(axisX, Qt.AlignBottom)
         series.attachAxis(axisX)
 
@@ -106,7 +129,7 @@ class TotalWaitPerYearCmp(QWidget):
         self.chart.addAxis(axisY, Qt.AlignLeft)
         series.attachAxis(axisY)
 
-        self.chart.setTitle("Total Wait Time Per Year")
+        self.chart.setTitle("Total Wait Time Per Month")
         self.chart.legend().setVisible(True)
         self.chart.legend().setAlignment(Qt.AlignBottom)
 

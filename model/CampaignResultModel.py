@@ -69,6 +69,7 @@ class CampaignResultModel:
             cmpResultVals.append(cmpResultVal)
 
         return cmpResultVals
+
     def insertCampaignResultValuesBatch2(self, cmpResultValues: List[tuple[int, [CampaignResultValue]]]):
         query = QSqlQuery(self.db)
         query.exec("begin exclusive transaction;")
@@ -99,6 +100,7 @@ class CampaignResultModel:
 
         #self.db.commit()  # Commit the transaction
         return True
+
     def insertCampaignResultValuesBatch(self, cmpResultValues: List[tuple[int, [CampaignResultValue]]]):
         query = QSqlQuery(self.db)
 
@@ -214,6 +216,7 @@ class CampaignResultModel:
         self.db.commit()  # Commit the transaction
         return True
 """
+
     # We always get a full Campaign Result object here
     def insertCampaignResults(self, campaignResults: list[CampaignResult]) -> bool:
         query = QSqlQuery(self.db)
@@ -256,7 +259,6 @@ class CampaignResultModel:
         #self.db.commit()
 
         return True
-
 
     def getAllCampaignResults(self):
         query = QSqlQuery(self.db)
@@ -301,16 +303,81 @@ class CampaignResultModel:
 
         return totalWait, totalWork
 
-    def calcWaitTimePerYear(self, selectedCampaignId) -> list[tuple[str, int]]:
+    def calcTotalWaitTimePerYear(self, selectedCampaignId) -> list[tuple[str, int]]:
         data: list[CampaignResult] = self.getCampaignResultsForCampaign(selectedCampaignId)
 
         waitTimePerYear: list[tuple[str, int]] = []
         year = data[0].year
         cmpsInyear = list(filter(lambda dataVal: dataVal.year == year, data))
-        waitTimePerYearTuple:tuple[str, int] = year.__str__(), sum(map(lambda cmpInYear: cmpInYear.total_wait, cmpsInyear))
+        waitTimePerYearTuple: tuple[str, int] = year.__str__(), sum(
+            map(lambda cmpInYear: cmpInYear.total_wait, cmpsInyear))
         while waitTimePerYearTuple[1] != 0:
             waitTimePerYear.append(waitTimePerYearTuple)
             year += 1
             cmpsInyear = list(filter(lambda dataVal: dataVal.year == year, data))
-            waitTimePerYearTuple:tuple[str, int] = year.__str__(), sum(map(lambda cmpInYear: cmpInYear.total_wait, cmpsInyear))
+            waitTimePerYearTuple: tuple[str, int] = year.__str__(), sum(
+                map(lambda cmpInYear: cmpInYear.total_wait, cmpsInyear))
         return waitTimePerYear
+
+    def calcAvgWaitTimePerYear(self, selectedCampaignId) -> list[tuple[str, float]]:
+        data: list[CampaignResult] = self.getCampaignResultsForCampaign(selectedCampaignId)
+
+        waitTimePerYear: list[tuple[str, float]] = []
+        if(len(data) == 0):
+            return waitTimePerYear
+        year = data[0].year
+        cmpsInYear = list(filter(lambda dataVal: dataVal.year == year, data))
+        waitTimePerYearTuple: tuple[str, float] = year.__str__(), sum(
+            map(lambda cmpInYear: cmpInYear.total_wait, cmpsInYear)) / len(cmpsInYear)
+        while waitTimePerYearTuple[1] != 0:
+            waitTimePerYear.append(waitTimePerYearTuple)
+            year += 1
+            cmpsInYear = list(filter(lambda dataVal: dataVal.year == year, data))
+            if len(cmpsInYear) == 0:
+                waitTimePerYearTuple = year.__str__(), 0
+                continue
+            waitTimePerYearTuple: tuple[str, float] = year.__str__(), sum(
+                map(lambda cmpInYear: cmpInYear.total_wait, cmpsInYear)) / len(cmpsInYear)
+        return waitTimePerYear
+
+    def calcTotalWaitTimePerMonth(self, selectedCampaignId, year) -> list[tuple[str, float]]:
+        data: list[CampaignResult] = self.getCampaignResultsForCampaign(selectedCampaignId)
+
+        waitTimePerMonth: list[tuple[str, float]] = []
+        month = 1
+        cmpsInMonth = list(filter(lambda dataVal: dataVal.year == year and dataVal.month == month, data))
+        waitTimePerMonthTuple: tuple[str, float] = month.__str__(), sum(
+            map(lambda cmpInYear: cmpInYear.total_wait, cmpsInMonth))
+        while month < 13:
+            waitTimePerMonth.append(waitTimePerMonthTuple)
+            month += 1
+            cmpsInMonth = list(filter(lambda dataVal: dataVal.year == year and dataVal.month == month, data))
+            if len(cmpsInMonth) == 0:
+                waitTimePerMonthTuple = month.__str__(), 0
+                continue
+            waitTimePerMonthTuple: tuple[str, float] = month.__str__(), sum(
+                map(lambda cmpInYear: cmpInYear.total_wait, cmpsInMonth))
+        return waitTimePerMonth
+
+    def calcAvgWaitTimePerMonth(self, selectedCampaignId, year) -> list[tuple[str, float]]:
+        data: list[CampaignResult] = self.getCampaignResultsForCampaign(selectedCampaignId)
+
+        waitTimePerMonth: list[tuple[str, float]] = []
+        month = 1
+        cmpsInMonth = list(filter(lambda dataVal: dataVal.year == year and dataVal.month == month, data))
+        waitTimePerMonthTuple: tuple[str, float] | None = None
+        if len(cmpsInMonth) == 0:
+            waitTimePerMonthTuple = month.__str__(), 0
+        else:
+            waitTimePerMonthTuple = month.__str__(), sum(
+                map(lambda cmpInYear: cmpInYear.total_wait, cmpsInMonth)) / len(cmpsInMonth)
+        while month < 13:
+            waitTimePerMonth.append(waitTimePerMonthTuple)
+            month += 1
+            cmpsInMonth = list(filter(lambda dataVal: dataVal.year == year and dataVal.month == month, data))
+            if len(cmpsInMonth) == 0:
+                waitTimePerMonthTuple = month.__str__(), 0
+                continue
+            waitTimePerMonthTuple: tuple[str, float] = month.__str__(), sum(
+                map(lambda cmpInYear: cmpInYear.total_wait, cmpsInMonth)) / len(cmpsInMonth)
+        return waitTimePerMonth
