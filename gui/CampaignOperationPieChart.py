@@ -62,6 +62,12 @@ class CampaignOperationPieChart(QWidget):
             self.dropdown.clear()
             self.dropdown.addItems([str(cmp.id) for cmp in self.campaigns])
 
+    def clearChart(self):
+        self.chart.removeAllSeries()
+        axes = self.chart.axes()
+        for axis in axes:
+            self.chart.removeAxis(axis)
+
     @QtCore.Slot()
     def onCampaignChanged(self, a):
         self.clearChart()
