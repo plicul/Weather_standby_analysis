@@ -52,6 +52,7 @@ class LimitModel:
         query = QSqlQuery(self.db)
         if limit.id == -1:
             query.prepare("SELECT Max(Id)+1 FROM [Limit]")
+            query.exec()
             query.next()
             limit.id = query.value(0) or 1
 

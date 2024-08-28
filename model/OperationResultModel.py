@@ -1,3 +1,4 @@
+import bisect
 import math
 from datetime import timedelta, datetime
 from typing import Optional
@@ -56,7 +57,6 @@ def getRelativeDir(waveDir: float, shipDir: float):
     #    relativeDir += 360
 
 
-
 def limitCheck(waveHeight: float, waveDir: float, wavePeriod: float, shipDir: float, limitVals: list[LimitValue]):
     relativeDir = getRelativeDir(waveDir, shipDir)
     waveHeightLimit = findWaveHeightLimit(limitVals=limitVals, relativeDir=relativeDir, wavePeriod=wavePeriod)
@@ -95,11 +95,32 @@ class OperationResultModel(QSqlTableModel):
         )
         return operationResult
 
-    def getAllRows(self) -> list[OperationResult]:
-        rows = []
-        for row in range(self.rowCount()):
-            rows.append(self.selectRow(row))
-        return rows
+    def getAllRows(self) -> dict[int, list[OperationResult]]:
+        operation_dict = {}
+        query = QSqlQuery(self.db)
+        query.prepare("SELECT Operation_Id, Year, Month, Day, Hour, Success FROM Operation_Result WHERE Success = 1")
+
+        if not query.exec():
+            logger.error(f"Query Error: {query.lastError().text()}")
+            return {}
+
+        while query.next():
+            operationId = query.value("Operation_Id")
+            operationRes = OperationResult(
+                operationId=operationId,
+                year=query.value("Year"),
+                month=query.value("Month"),
+                day=query.value("Day"),
+                hour=query.value("Hour"),
+                success=query.value("Success")
+            )
+
+            # Add the operation result to the dictionary
+            if operationId not in operation_dict:
+                operation_dict[operationId] = []
+            operation_dict[operationId].append(operationRes)
+
+        return operation_dict
 
     def insertRowData(self, operationResult: OperationResult) -> bool:
         row = self.rowCount()
@@ -122,7 +143,7 @@ class OperationResultModel(QSqlTableModel):
             timeSlotsReq = math.ceil(operation.timeReq // 3)
             seaDataIndex = seaDataList.index(seaData)
             seaDataTimeSlots: list[SeaData] = []
-            if seaDataIndex+timeSlotsReq >= len(seaDataList):
+            if seaDataIndex + timeSlotsReq >= len(seaDataList):
                 operationResult = OperationResult(
                     operationId=operation.id,
                     year=seaData.year,
@@ -147,44 +168,59 @@ class OperationResultModel(QSqlTableModel):
             #self.insertRowData(operationResult)
         self.insertRowDataQuery(operationResults)
         return
+    """
+    def getFirstPassingDate(self, currentDate: SeaDataDate, operation: CampaignOperation,
+                            operationsResults: list[OperationResult], operationLenMap: dict[int, int]):
+        def is_valid(res):
+            # Returns True if the result meets the criteria
+            return (res.operationId == operation.operationId and
+                    res.success == 1 and
+                    (res.year > currentDate.year or
+                     (res.year == currentDate.year and res.month > currentDate.month) or
+                     (res.year == currentDate.year and res.month == currentDate.month and res.day > currentDate.day) or
+                     (res.year == currentDate.year and res.month == currentDate.month and res.day == currentDate.day and res.hour >= currentDate.hour)))
 
-    def getFirstPassingDate(self, currentDate: SeaDataDate, operation: CampaignOperation):
-        query = QSqlQuery()
-        query.prepare("""
-                SELECT opRes.Year, opRes.Month, opRes.Day, opRes.Hour, opRes.Success, op.Time_Req
-                FROM Operation_Result as opRes left join operation op on opRes.operation_Id = op.Id 
-                WHERE opRes.operation_Id = :operationId
-                  AND (opRes.Year > :year 
-                       OR (opRes.Year = :year AND opRes.Month > :month)
-                       OR (opRes.Year = :year AND opRes.Month = :month AND opRes.Day > :day)
-                       OR (opRes.Year = :year AND opRes.Month = :month AND opRes.Day = :day AND opRes.Hour >= :hour))
-                  AND opRes.Success = 1
-                ORDER BY Year, Month, Day, Hour
-                LIMIT 1
-            """)
-        query.bindValue(":operationId", operation.operationId)
-        query.bindValue(":year", currentDate.year)
-        query.bindValue(":month", currentDate.month)
-        query.bindValue(":day", currentDate.day)
-        query.bindValue(":hour", currentDate.hour)
+        # Using bisect to find the starting index of the first valid result
+        start_index = bisect.bisect_left(operationsResults, currentDate,
+                                         key=lambda res: SeaDataDate(res.year, res.month, res.day, res.hour))
 
-        if query.exec():
-            if query.next():
-                year = query.value(0)
-                month = query.value(1)
-                day = query.value(2)
-                hour = query.value(3)
-                first_passing_date = datetime(year, month, day, hour)
-
-                end_date = first_passing_date + timedelta(hours=query.value(5) * 3)
-
+        # Iterating from the found index to check for the first valid result
+        for i in range(start_index, len(operationsResults)):
+            res = operationsResults[i]
+            if is_valid(res):
+                first_passing_date = datetime(res.year, res.month, res.day, res.hour)
+                end_date = first_passing_date + timedelta(hours=operationLenMap[res.operationId] * 3)
                 return SeaDataDate(first_passing_date.year, first_passing_date.month, first_passing_date.day, first_passing_date.hour), SeaDataDate(end_date.year, end_date.month, end_date.day, end_date.hour)
-            else:
-                logger.info("No passing date found that meets the criteria.")
-                return None, None
-        else:
-            logger.error(f"Query Error: {query.lastError().text()}")
-            return None, None
+
+        # If no matching result is found
+        logger.info("No passing date found that meets the criteria.")
+        return None, None
+    """
+    def getFirstPassingDate(self, currentDate: SeaDataDate, operation: CampaignOperation,
+                            operationsResults: list[OperationResult], operationLenMap: dict[int, int]):
+        # Iterate through the sorted operationsResults
+        for res in operationsResults:
+            # Check if the operationId matches
+            if res.operationId == operation.operationId:
+                # Check if the result date is after the currentDate
+                if (res.year > currentDate.year
+                        or (res.year == currentDate.year and res.month > currentDate.month)
+                        or (res.year == currentDate.year and res.month == currentDate.month and res.day > currentDate.day)
+                        or (res.year == currentDate.year and res.month == currentDate.month and res.day == currentDate.day and res.hour >= currentDate.hour)):
+                    # Check if the operation was successful
+                    if res.success == 1:
+                        # Found the first matching result
+                        first_passing_date = datetime(res.year, res.month, res.day, res.hour)
+
+                        # Calculate the end date using the operation length map
+                        end_date = first_passing_date + timedelta(hours=operationLenMap[res.operationId] * 3)
+
+                        return SeaDataDate(first_passing_date.year, first_passing_date.month, first_passing_date.day,
+                                           first_passing_date.hour), SeaDataDate(end_date.year, end_date.month, end_date.day,
+                                                                                 end_date.hour)
+        # If no matching result is found
+        logger.info("No passing date found that meets the criteria.")
+        return None, None
 
     def insertRowDataQuery(self, operationResults: list[OperationResult]):
         query = QSqlQuery(self.db)

@@ -41,7 +41,7 @@ class SeaDataModel(QSqlTableModel):
         seaDataList = []
         while query.next():
             seaDataTmp = SeaData(year=query.value(0), month=query.value(1), day=query.value(2), hour=query.value(3),
-                                 waveHeight=query.value(4),wavePeriod=query.value(5), waveDir=query.value(6))
+                                 waveHeight=query.value(4),wavePeriod=query.value(6), waveDir=query.value(5))
             seaDataList.append(seaDataTmp)
 
         return seaDataList
@@ -69,7 +69,7 @@ class SeaDataModel(QSqlTableModel):
 
     def getSeaDataDateRange(self) -> list[SeaDataDate]:
         query = QSqlQuery(self.db)
-        query.prepare("SELECT year, month, day, hour FROM Sea_Data where Hour = 0 ")
+        query.prepare("SELECT year, month, day, hour FROM Sea_Data where  Year = 2011 and Hour = 0 ")
 
         if not query.exec():
             logger.error(f"Query Error: {query.lastError().text()}")

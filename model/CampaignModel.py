@@ -15,7 +15,7 @@ class CampaignModel:
     def getCampaign(self, campaignId) -> Campaign | None:
         query = QSqlQuery(self.db)
         query.prepare("SELECT cmp.Id, cmp_op.Operation_Id, cmp_op.Relationship, cmp_op.[order], cmp_op.id FROM Campaign as cmp "
-                      "left join Campaign_Operations as cmp_op on cmp.Id = cmp_op.Campaign_Id left join Operation as op on cmp_op.Operation_Id = op.Id where cmp.Id = :campaignId")
+                      "left join Campaign_Operations as cmp_op on cmp.Id = cmp_op.Campaign_Id left join Operation as op on cmp_op.Operation_Id = op.Id where cmp.Id = :campaignId order by cmp_op.[order] ")
         query.bindValue(":campaignId", campaignId)
 
         if not query.exec():
@@ -57,7 +57,7 @@ class CampaignModel:
 
     def getAllCampaignIds(self) -> List[int | None]:
         query = QSqlQuery(self.db)
-        query.prepare("SELECT Id FROM Campaign")
+        query.prepare("SELECT Id FROM Campaign where Id = 2")
 
         if not query.exec():
             logger.error(f"Query Error: {query.lastError().text()}")
@@ -73,8 +73,6 @@ class CampaignModel:
     def insertCampaign(self, campaign: Campaign) -> bool:
         query = QSqlQuery(self.db)
         query.prepare("INSERT INTO Campaign DEFAULT VALUES")
-
-        #TODO insert cmp operations
 
         if not query.exec():
             logger.error(f"Insert Error (Campaign): {query.lastError().text()}")

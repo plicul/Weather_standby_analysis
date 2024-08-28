@@ -273,7 +273,6 @@ class CampaignResultModel:
                                              total_wait=None, total_work=None, success=None))
         return cmpResList
 
-    # TODO
     def getTotalWaitTotalWork(self, campaignId):
         query = QSqlQuery(self.db)
 

@@ -3,6 +3,7 @@ import logging
 
 from PySide6 import QtWidgets
 
+from gui import TotalUnoperableSlotsMonthly
 from gui.AvgWaitPerMonthCmp import AvgWaitPerMonthCmp
 from gui.AvgWaitPerYearCmp import AvgWaitPerYearCmp
 from gui.TotalWaitPerMonthCmp import TotalWaitPerMonthCmp
@@ -11,8 +12,9 @@ from gui.CampaignFlowChartWidget import CampaignFlowChartWidget
 from gui.CampaignOperationPieChart import CampaignOperationPieChart
 from gui.HomeWidget import HomeWidget
 from gui.SeaDataTableView import SeaDataTableViewWidget
+from gui.TotalUnoperableSlotsMonthly import TotalUnoperableDaysMonthly
 from gui.MainWindow import MainWindow
-from gui.MyWidget import MyWidget
+from gui.GenerationWidget import MyWidget
 from db import connectToDatabase
 
 logging.basicConfig(filename="app.log", level=logging.DEBUG)
@@ -36,8 +38,9 @@ if __name__ == "__main__":
     avgWaitPerYearCmp = AvgWaitPerYearCmp()
     totalWaitPerMonthCmp = TotalWaitPerMonthCmp()
     avgWaitPerMonthCmp = AvgWaitPerMonthCmp()
+    totalUnoperableDaysMonthly = TotalUnoperableDaysMonthly()
     widgets = [homeWidget, seaDataWidget, widget, campaignFlowChartWidget, campaignOperationPieChart,
-               totalWaitPerYearCmp, avgWaitPerYearCmp, totalWaitPerMonthCmp,avgWaitPerMonthCmp]
+               totalWaitPerYearCmp, avgWaitPerYearCmp, totalWaitPerMonthCmp,avgWaitPerMonthCmp, totalUnoperableDaysMonthly]
 
     window = MainWindow(widgets)
     window.show()

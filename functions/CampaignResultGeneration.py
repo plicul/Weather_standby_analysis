@@ -1,8 +1,9 @@
 from datetime import timedelta, datetime
 
-from consts.types import Campaign, SeaDataDate, CampaignResult, CampaignResultValue, CampaignOperation
+from consts.types import Campaign, SeaDataDate, CampaignResult, CampaignResultValue, CampaignOperation, OperationResult
 from model.CampaignModel import CampaignModel
 from model.CampaignResultModel import CampaignResultModel
+from model.OperationModel import OperationModel
 from model.OperationResultModel import OperationResultModel
 from collections import deque
 
@@ -32,19 +33,19 @@ def generateCampaignResultValuesUntilFromTo(currentDate, firstPassingDate, endDa
     return result_values
 
 
-def checkNextOperation(nextOperation, firstPassingDate, endDate, operationResultModel):
+def checkNextOperation(nextOperation, firstPassingDate, endDate, operationResultModel, operationsResults: dict[int, list[OperationResult]], operationLenMap: dict[int, int]):
     try:
         if nextOperation.relation == "F-S_NF":
-            nextOpFirstPassingDate, endDateNew = operationResultModel.getFirstPassingDate(endDate, nextOperation)
+            nextOpFirstPassingDate, endDateNew = operationResultModel.getFirstPassingDate(endDate, nextOperation, operationsResults[nextOperation.operationId], operationLenMap)
             return endDate <= nextOpFirstPassingDate
         elif nextOperation.relation == "F-S_F":
-            nextOpFirstPassingDate, endDateNew = operationResultModel.getFirstPassingDate(endDate, nextOperation)
+            nextOpFirstPassingDate, endDateNew = operationResultModel.getFirstPassingDate(endDate, nextOperation, operationsResults[nextOperation.operationId], operationLenMap)
             return endDate == nextOpFirstPassingDate
         elif nextOperation.relation == "S-S_NF":
-            nextOpFirstPassingDate, endDateNew = operationResultModel.getFirstPassingDate(firstPassingDate, nextOperation)
+            nextOpFirstPassingDate, endDateNew = operationResultModel.getFirstPassingDate(firstPassingDate, nextOperation, operationsResults[nextOperation.operationId], operationLenMap)
             return firstPassingDate <= nextOpFirstPassingDate
         elif nextOperation.relation == "S-S_F":
-            nextOpFirstPassingDate, endDateNew = operationResultModel.getFirstPassingDate(firstPassingDate, nextOperation)
+            nextOpFirstPassingDate, endDateNew = operationResultModel.getFirstPassingDate(firstPassingDate, nextOperation, operationsResults[nextOperation.operationId], operationLenMap)
             return firstPassingDate == nextOpFirstPassingDate
         return False
     except Exception as e:
@@ -97,7 +98,7 @@ def getTotalWork(cmpResultVals):
 
 
 def generateCampaignResultValues(campaignId, operations, date: SeaDataDate,
-                                 operationResultModel: OperationResultModel) -> CampaignResult:
+                                 operationResultModel: OperationResultModel, allOperationResults: dict[int, list[OperationResult]], operationLenMap) -> CampaignResult:
     operationsStack: list[CampaignOperation] = operations.copy()
     processedOperations: list[CampaignOperation] = []
 
@@ -110,22 +111,18 @@ def generateCampaignResultValues(campaignId, operations, date: SeaDataDate,
     timesInRecoveryLoop = 0
     while operationsStack:
         operation = operationsStack.pop()
-        #if len(operationsStack) > 0:
-        #    nextOperation = operationsStack.pop()
-        #    operationsStack.append(nextOperation)
         nextOperation = operationsStack[-1] if operationsStack else None
         processedOperations.append(operation)
 
-        firstPassingDate, endDate = operationResultModel.getFirstPassingDate(currentDate, operation)
+        firstPassingDate, endDate = operationResultModel.getFirstPassingDate(currentDate, operation, allOperationResults[operation.operationId], operationLenMap)
 
         cmpResultValsTemp: list[CampaignResultValue] = generateCampaignResultValuesUntilFromTo(currentDate,
                                                                                                firstPassingDate,
                                                                                                endDate,
                                                                                                operation.operationId,
                                                                                                operation.id)
-        nextOperationRes: bool | None = checkNextOperation(nextOperation, firstPassingDate, endDate, operationResultModel)
+        nextOperationRes: bool | None = checkNextOperation(nextOperation, firstPassingDate, endDate, operationResultModel, allOperationResults, operationLenMap)
         # nextOperationRes is None if no successfull date can be found!
-        # TODO je li ovo tocno
         if nextOperation is not None and nextOperationRes is None:
             return CampaignResult(id=None, campaign_id=campaignId, year=date.year, month=date.month, day=date.day,
                                   hour=date.hour, resultValues=cmpResultVals, success=False,
@@ -134,7 +131,13 @@ def generateCampaignResultValues(campaignId, operations, date: SeaDataDate,
             if timesInRecoveryLoop > 0:
                 recoveryResultVals = []
                 temp_date = SeaDataDate(cmpResultVals[-1].year, cmpResultVals[-1].month, cmpResultVals[-1].day, cmpResultVals[-1].hour)
-                for i in range(timesInRecoveryLoop):
+                #for i in range(timesInRecoveryLoop):
+                #    #temp_date = nextDate(temp_date, 0)
+                #    recoveryResultVals.append(
+                #        CampaignResultValue(None, temp_date.year, temp_date.month, temp_date.day, temp_date.hour, operation.operationId,
+                #                            'wait', operation.id,None))
+                #    temp_date += timedelta(hours=3)
+                while temp_date < currentDate:
                     #temp_date = nextDate(temp_date, 0)
                     recoveryResultVals.append(
                         CampaignResultValue(None, temp_date.year, temp_date.month, temp_date.day, temp_date.hour, operation.operationId,
@@ -153,11 +156,11 @@ def generateCampaignResultValues(campaignId, operations, date: SeaDataDate,
 
         else:
             lastPop = processedOperations.pop()
-            cmpResultVals = [val for val in cmpResultVals if val.operationId != lastPop.operationId]
+            cmpResultVals = [val for val in cmpResultVals if val.campaignOperationId != lastPop.id]
             operationsStack.append(lastPop)
             while processedOperations and not (processedOperations[-1].relation in ["F-S_NF", "S-S_NF", ""]):
                 lastPop = processedOperations.pop()
-                cmpResultVals = [val for val in cmpResultVals if val.operationId != lastPop.operationId]
+                cmpResultVals = [val for val in cmpResultVals if val.campaignOperationId != lastPop.id]
                 operationsStack.append(lastPop)
 
             if cmpResultVals:
@@ -199,16 +202,27 @@ def generateCampaignResultValues(campaignId, operations, date: SeaDataDate,
                           total_wait=getTotalWait(cmpResultVals), total_work=getTotalWork(cmpResultVals))
 
 
+def getOperationLenMap(operations: list[CampaignOperation], operationModel: OperationModel) -> dict[int, int]:
+    mp = dict()
+    for op in operations:
+        if op.operationId not in mp:
+            mp.update({op.operationId: operationModel.getTimeReq(op.operationId)})
+    return mp
+
+
 def simulateCampaign(campaign: Campaign, dates: list[SeaDataDate], campaignResultModel: CampaignResultModel,
-                     operationResultModel: OperationResultModel) -> bool:
+                     operationResultModel: OperationResultModel, operationModel: OperationModel) -> bool:
     try:
         a = 0
         cmpResults: list[CampaignResult] = []
+        allOperationResults: dict[int, list[OperationResult]] = operationResultModel.getAllRows()
+        operationLenMap = getOperationLenMap(campaign.operations,operationModel)
         try:
+
             for date in dates:
                 a += 1
                 cmpRes: CampaignResult = generateCampaignResultValues(campaign.id, campaign.operations, date,
-                                                                      operationResultModel)
+                                                                      operationResultModel, allOperationResults,operationLenMap)
                 cmpResults.append(cmpRes)
         except Exception as e:
             pass

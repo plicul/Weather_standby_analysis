@@ -61,3 +61,16 @@ class OperationModel:
             return False
 
         return True
+
+    def getTimeReq(self, operationId):
+        query = QSqlQuery(self.db)
+        query.prepare("SELECT Time_Req FROM Operation where Id = :operationId")
+        query.bindValue(":operationId", operationId)
+
+        if not query.exec():
+            logger.error(f"Query Error: {query.lastError().text()}")
+            return -1
+        query.next()
+        timeReq = query.value(0)
+
+        return timeReq

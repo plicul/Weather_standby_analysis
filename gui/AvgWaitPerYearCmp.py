@@ -1,20 +1,15 @@
-from collections import defaultdict
-from operator import itemgetter
-
 from PySide6 import QtCore
-from PySide6.QtCharts import QChart, QChartView, QLineSeries, QDateTimeAxis, QValueAxis, QBarSeries, QBarSet, \
-    QCategoryAxis, QHorizontalStackedBarSeries, QBarCategoryAxis
-from PySide6.QtCore import QDateTime, Qt, QDate, QTime, QRectF
-from PySide6.QtGui import QPainter, QBrush, QColor, QCursor
-from PySide6.QtWidgets import (QHBoxLayout, QHeaderView, QSizePolicy,
-                               QTableView, QWidget, QGraphicsRectItem, QGraphicsScene, QToolTip, QComboBox, QVBoxLayout,
+from PySide6.QtCharts import QChart, QChartView, QValueAxis, QBarSeries, QBarSet, \
+    QBarCategoryAxis
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPainter
+from PySide6.QtWidgets import (QHBoxLayout, QSizePolicy,
+                               QWidget, QComboBox, QVBoxLayout,
                                QLabel)
 
-from consts.types import CampaignResultValue, SeaDataDate, CampaignResult, Campaign
+from consts.types import CampaignResult
 from model.CampaignModel import CampaignModel
 from model.CampaignResultModel import CampaignResultModel
-from model.SeaDataModel import SeaDataModel
-from utils import calcSeaDataDif
 
 
 class AvgWaitPerYearCmp(QWidget):
