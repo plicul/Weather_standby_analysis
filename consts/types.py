@@ -41,6 +41,9 @@ class SeaDataDate:
     def __radd__(self, delta: timedelta):
         return self.__add__(delta)
 
+    def __str__(self):
+        return f"{self.year}-{self.month}-{self.day}"
+
 
 @dataclass
 class SeaData:
@@ -63,6 +66,7 @@ class LimitValue:
 @dataclass
 class Limit:
     id: int
+    name: str
     values: list[LimitValue]
 
 
@@ -77,6 +81,17 @@ class Operation:
 
 @dataclass
 class OperationResult:
+    operationId: int
+    year: int
+    month: int
+    day: int
+    hour: int
+    success: bool
+
+
+@dataclass
+class SimpleOperationResult:
+    operationName: str
     operationId: int
     year: int
     month: int

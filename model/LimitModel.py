@@ -14,7 +14,7 @@ class LimitModel:
 
     def selectLimit(self, limitId) -> Limit | None:
         query = QSqlQuery(self.db)
-        query.prepare("SELECT Wave_Period, Wave_Dir, Wave_Height FROM Limit_Values WHERE Limit_Id = :limitId")
+        query.prepare("SELECT a.name, b.Wave_Period, b.Wave_Dir, b.Wave_Height FROM [Limit] as a left join Limit_Values as b on a.id = b.Limit_Id WHERE Limit_Id = :limitId")
         query.bindValue(":limitId", limitId)
 
         if not query.exec():
@@ -22,14 +22,16 @@ class LimitModel:
             return None
 
         values = []
+        name = ""
         while query.next():
+            name = query.value(0)
             values.append(LimitValue(
-                wavePeriod=query.value(0),
-                waveDir=query.value(1),
-                waveHeight=query.value(2)
+                wavePeriod=query.value(1),
+                waveDir=query.value(2),
+                waveHeight=query.value(3)
             ))
 
-        return Limit(id=limitId, values=values)
+        return Limit(id=limitId,name=name, values=values)
 
     def getAllLimits(self) -> List[Limit | None]:
         query = QSqlQuery(self.db)

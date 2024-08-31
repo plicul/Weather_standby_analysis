@@ -6,7 +6,7 @@ from PySide6.QtCore import QDate, QDateTime
 from PySide6.QtSql import QSqlTableModel, QSqlDatabase, QSqlQuery
 import logging
 
-from consts.types import SeaData, OperationResult, Operation, LimitValue, SeaDataDate, CampaignOperation
+from consts.types import SeaData, SimpleOperationResult, Operation, LimitValue, SeaDataDate, CampaignOperation, SimpleOperationResult
 
 logger = logging.getLogger("logger")
 
@@ -82,9 +82,10 @@ class SimpleOperationResultModel(QSqlTableModel):
         else:
             logger.info("Model(Operation_Result) created and data selected successfully")
 
-    def selectRow(self, row) -> OperationResult:
+    def selectRow(self, row) -> SimpleOperationResult:
         record = self.record(row)
-        operationResult = OperationResult(
+        simpleOperationResult = SimpleOperationResult(
+            operationName= "",
             operationId=record.value("Operation_Id"),
             year=record.value("Year"),
             month=record.value("Month"),
@@ -92,11 +93,11 @@ class SimpleOperationResultModel(QSqlTableModel):
             hour=record.value("Hour"),
             success=record.value("Success")
         )
-        return operationResult
+        return simpleOperationResult
 
-    def getAllRows(self) -> list[OperationResult]:
+    def getAllRows(self) -> list[SimpleOperationResult]:
         query = QSqlQuery(self.db)
-        query.prepare("SELECT * FROM Simple_Operation_Result order by year, Month, Day, Hour")
+        query.prepare("SELECT  O.name,b.Operation_Id, b.year, b.month, b.day, b.hour, b.success FROM Simple_Operation_Result b left join Operation O on O.Id = b.Operation_Id order by year, Month, Day, Hour")
 
         if not query.exec():
             logger.error(f"Query Error: {query.lastError().text()}")
@@ -104,19 +105,19 @@ class SimpleOperationResultModel(QSqlTableModel):
 
         rows = []
         while query.next():
-            rows.append(OperationResult(query.value("Operation_Id"), query.value("Year"), query.value("Month"), query.value("Day"), query.value("Hour"), query.value("Success")))
+            rows.append(SimpleOperationResult(query.value(0), query.value(1), query.value(2), query.value(3), query.value(4), query.value(5), query.value(6)))
 
         return rows
 
-    def insertRowData(self, operationResult: OperationResult) -> bool:
+    def insertRowData(self, SimpleOperationResult: SimpleOperationResult) -> bool:
         row = self.rowCount()
         self.insertRow(row)
-        self.setData(self.index(row, self.fieldIndex("Operation_Id")), operationResult.operationId)
-        self.setData(self.index(row, self.fieldIndex("Year")), operationResult.year)
-        self.setData(self.index(row, self.fieldIndex("Month")), operationResult.month)
-        self.setData(self.index(row, self.fieldIndex("Day")), operationResult.day)
-        self.setData(self.index(row, self.fieldIndex("Hour")), operationResult.hour)
-        self.setData(self.index(row, self.fieldIndex("Success")), operationResult.success)
+        self.setData(self.index(row, self.fieldIndex("Operation_Id")), SimpleOperationResult.operationId)
+        self.setData(self.index(row, self.fieldIndex("Year")), SimpleOperationResult.year)
+        self.setData(self.index(row, self.fieldIndex("Month")), SimpleOperationResult.month)
+        self.setData(self.index(row, self.fieldIndex("Day")), SimpleOperationResult.day)
+        self.setData(self.index(row, self.fieldIndex("Hour")), SimpleOperationResult.hour)
+        self.setData(self.index(row, self.fieldIndex("Success")), SimpleOperationResult.success)
         if not self.submitAll():
             logger.error(f"Insert Error: {self.lastError().text()}")
             return False
@@ -124,9 +125,10 @@ class SimpleOperationResultModel(QSqlTableModel):
         return True
 
     def generateOperationResults(self, seaDataList: list[SeaData], operation: Operation):
-        operationResults = []
+        SimpleOperationResults = []
         for seaData in seaDataList:
-            operationResult = OperationResult(
+            simpleOperationResult = SimpleOperationResult(
+                operationName="",
                 operationId=operation.id,
                 year=seaData.year,
                 month=seaData.month,
@@ -134,12 +136,12 @@ class SimpleOperationResultModel(QSqlTableModel):
                 hour=seaData.hour,
                 success=successCheck(operation.shipDir, operation.limit.values, seaData, operation.type)
             )
-            operationResults.append(operationResult)
-            #self.insertRowData(operationResult)
-        self.insertRowDataQuery(operationResults)
+            SimpleOperationResults.append(simpleOperationResult)
+            #self.insertRowData(SimpleOperationResult)
+        self.insertRowDataQuery(SimpleOperationResults)
         return
 
-    def insertRowDataQuery(self, operationResults: list[OperationResult]):
+    def insertRowDataQuery(self, SimpleOperationResults: list[SimpleOperationResult]):
         query = QSqlQuery(self.db)
         query.exec("begin exclusive transaction;")
 
@@ -148,7 +150,7 @@ class SimpleOperationResultModel(QSqlTableModel):
         query.prepare(
             "INSERT INTO Simple_Operation_Result(Operation_Id, Year, Month, Day, Hour, Success) VALUES (?,?,?,?,?,?)")
 
-        for resultValue in operationResults:
+        for resultValue in SimpleOperationResults:
             query.addBindValue(resultValue.operationId)
             query.addBindValue(resultValue.year)
             query.addBindValue(resultValue.month)
@@ -171,18 +173,25 @@ class SimpleOperationResultModel(QSqlTableModel):
         allResults = self.getAllRows()
         allResults = [x for x in allResults if not x.success]
 
-        currentIndex = -1
-        totalUnoperableSlotsPerMonth: list[list[QDateTime | float]] = []
+        totalUnoperableSlotsPerMonth: dict[str, list[list[QDateTime, float]]] = dict()
+
         for result in allResults:
+            operation_id = result.operationName
             year = result.year
             month = result.month
-            date: QDateTime = QDateTime()
+            date = QDateTime()
             date.setDate(QDate(year, month, 15))
 
-            if len(totalUnoperableSlotsPerMonth) > 0 and totalUnoperableSlotsPerMonth[currentIndex][0] == date:
-                totalUnoperableSlotsPerMonth[currentIndex][1] += 1
+            # Check if the operation_id already exists in the dictionary
+            if operation_id in totalUnoperableSlotsPerMonth:
+                # Check if the date is the same as the last entry's date
+                last_entry = totalUnoperableSlotsPerMonth[operation_id][-1]
+                if last_entry[0] == date:
+                    last_entry[1] += 1*3  # Increment the count
+                else:
+                    totalUnoperableSlotsPerMonth[operation_id].append([date, 1*3])  # New date entry
             else:
-                totalUnoperableSlotsPerMonth.append([date, 1])
-                currentIndex += 1
+                # If operation_id doesn't exist, create a new entry
+                totalUnoperableSlotsPerMonth[operation_id] = [[date, 1*3]]
 
         return totalUnoperableSlotsPerMonth

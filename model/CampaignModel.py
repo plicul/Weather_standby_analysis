@@ -57,7 +57,7 @@ class CampaignModel:
 
     def getAllCampaignIds(self) -> List[int | None]:
         query = QSqlQuery(self.db)
-        query.prepare("SELECT Id FROM Campaign where Id = 2")
+        query.prepare("SELECT Id FROM Campaign")
 
         if not query.exec():
             logger.error(f"Query Error: {query.lastError().text()}")

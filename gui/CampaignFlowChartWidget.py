@@ -21,13 +21,17 @@ class CampaignFlowChartWidget(QWidget):
         self.model = CampaignResultModel()
         self.name = "Campaign Flow Chart"
         self.campaigns: list[CampaignResult] = self.model.getAllCampaignResults()
-
+        self.campaignDdwDict = {
+            SeaDataDate(cmp.year, cmp.month, cmp.day, cmp.hour).__str__() + " - " + str(cmp.campaign_id - 1):  cmp.id
+            for cmp in self.campaigns
+        }
         self.chart = QChart()
         self.chart.setAnimationOptions(QChart.AllAnimations)
         self.addSeries(self.campaigns[0].id) if self.campaigns and len(self.campaigns) > 0 else None
 
         self.dropdown = QComboBox(self)
-        self.dropdown.addItems([str(cmp.id) for cmp in self.campaigns])
+        #self.dropdown.addItems([str(cmp.id) for cmp in self.campaigns])
+        self.dropdown.addItems(self.campaignDdwDict.keys())
         #self.dropdown.currentIndexChanged.connect(self.onCampaignChanged())
         #self.dropdown.currentTextChanged.connect(self.onCampaignChanged())
         self.dropdown.setCurrentIndex(0)
@@ -57,18 +61,23 @@ class CampaignFlowChartWidget(QWidget):
         newCampaigns: list[CampaignResult] = self.model.getAllCampaignResults()
         if len(newCampaigns) != len(self.campaigns):
             self.campaigns: list[CampaignResult] = newCampaigns
+            self.campaignDdwDict = {
+                SeaDataDate(cmp.year, cmp.month, cmp.day, cmp.hour).__str__():  cmp.id
+                for cmp in self.campaigns
+            }
             self.dropdown.clear()
-            self.dropdown.addItems([str(cmp.id) for cmp in self.campaigns])
+            #self.dropdown.addItems([str(cmp.id) for cmp in self.campaigns])
+            self.dropdown.addItems(self.campaignDdwDict.keys())
 
     @QtCore.Slot()
     def onCampaignChanged(self, a):
         b = a
         self.clearChart()
-        selectedCampaignId = int(self.dropdown.currentText())
+        selectedCampaignId = self.campaignDdwDict[self.dropdown.currentText()]
         self.addSeries(selectedCampaignId)
 
     def addSeries(self, selectedCampaignId):
-        data = self.model.getCampaignResultValuesForCampaignResult(selectedCampaignId)  #78239
+        data = self.model.getCampaignResultValuesForCampaignResult(selectedCampaignId)
 
         operationList = []
         grouped_data = defaultdict(list)
@@ -134,7 +143,7 @@ class CampaignFlowChartWidget(QWidget):
 
         axisY = QBarCategoryAxis()
         axisY.append(operationList)
-        axisY.setTitleText("Operation ID")
+        axisY.setTitleText("Operation")
         self.chart.addAxis(axisY, Qt.AlignLeft)
         series.attachAxis(axisY)
 

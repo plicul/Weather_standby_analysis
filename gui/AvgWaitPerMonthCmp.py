@@ -100,7 +100,7 @@ class AvgWaitPerMonthCmp(QWidget):
         bars = {}
         for dataVal in data:
             bars[dataVal[0]] = set # QBarSet(dataVal[0])
-            bars[dataVal[0]].append(dataVal[1])
+            bars[dataVal[0]].append(dataVal[1]*3)
         #bars["prevOp"] = QBarSet("")
         #bars["finish"].setColor('#1E3A5F')  #Dark Blue
 
@@ -119,9 +119,10 @@ class AvgWaitPerMonthCmp(QWidget):
         series.attachAxis(axisX)
 
         axisY = QValueAxis()
-        axisY.setTitleText("Avg Wait Time")
+        axisY.setTitleText("Avg Wait Time (h)")
         axisY.setTickInterval(1)
         axisY.setTickCount(10)
+        axisY.setRange(0,3500)
         self.chart.addAxis(axisY, Qt.AlignLeft)
         series.attachAxis(axisY)
 

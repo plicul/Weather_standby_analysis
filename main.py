@@ -6,6 +6,7 @@ from PySide6 import QtWidgets
 from gui import TotalUnoperableSlotsMonthly
 from gui.AvgWaitPerMonthCmp import AvgWaitPerMonthCmp
 from gui.AvgWaitPerYearCmp import AvgWaitPerYearCmp
+from gui.LimitPolarChart import LimitPolarChart
 from gui.TotalWaitPerMonthCmp import TotalWaitPerMonthCmp
 from gui.TotalWaitPerYearCmp import TotalWaitPerYearCmp
 from gui.CampaignFlowChartWidget import CampaignFlowChartWidget
@@ -39,8 +40,9 @@ if __name__ == "__main__":
     totalWaitPerMonthCmp = TotalWaitPerMonthCmp()
     avgWaitPerMonthCmp = AvgWaitPerMonthCmp()
     totalUnoperableDaysMonthly = TotalUnoperableDaysMonthly()
+    limitPolarChart = LimitPolarChart()
     widgets = [homeWidget, seaDataWidget, widget, campaignFlowChartWidget, campaignOperationPieChart,
-               totalWaitPerYearCmp, avgWaitPerYearCmp, totalWaitPerMonthCmp,avgWaitPerMonthCmp, totalUnoperableDaysMonthly]
+               totalWaitPerYearCmp, avgWaitPerYearCmp, totalWaitPerMonthCmp,avgWaitPerMonthCmp, totalUnoperableDaysMonthly, limitPolarChart]
 
     window = MainWindow(widgets)
     window.show()
