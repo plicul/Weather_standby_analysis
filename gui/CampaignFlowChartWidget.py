@@ -22,12 +22,12 @@ class CampaignFlowChartWidget(QWidget):
         self.name = "Campaign Flow Chart"
         self.campaigns: list[CampaignResult] = self.model.getAllCampaignResults()
         self.campaignDdwDict = {
-            SeaDataDate(cmp.year, cmp.month, cmp.day, cmp.hour).__str__() + " - " + str(cmp.campaign_id - 1):  cmp.id
+            SeaDataDate(cmp.year, cmp.month, cmp.day, cmp.hour).__str__() + " - Cmp. -" + str(cmp.campaign_id - 1):  cmp.id
             for cmp in self.campaigns
         }
         self.chart = QChart()
         self.chart.setAnimationOptions(QChart.AllAnimations)
-        self.addSeries(self.campaigns[0].id) if self.campaigns and len(self.campaigns) > 0 else None
+        #self.addSeries(self.campaigns[0].id) if self.campaigns and len(self.campaigns) > 0 else None
 
         self.dropdown = QComboBox(self)
         #self.dropdown.addItems([str(cmp.id) for cmp in self.campaigns])
@@ -136,6 +136,7 @@ class CampaignFlowChartWidget(QWidget):
         axisX = QValueAxis()
         axisX.setTitleText("Time (h)")
         axisX.setMin(0)
+       # axisX.setMax(3000)
         axisX.setTickInterval(1)
         axisX.setTickCount(10)
         self.chart.addAxis(axisX, Qt.AlignBottom)
